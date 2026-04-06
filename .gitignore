@@ -1,5 +1,8 @@
-venv/
-Manga109_released_2023_12_07/
-scripts/
-manga_panels/
-magi/
+# Ignore everything
+*
+
+# Except Python files and prompts directory
+!*.py
+!prompts/
+!prompts/**
+!.gitignore
