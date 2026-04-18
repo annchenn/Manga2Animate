@@ -49,7 +49,11 @@ Requirements:
 - Each storyboard panel must be equally sized
 - Strictly follow the 1 clip : 1 manga panel : 1 storyboard panel rule
 - Include camera angles and character poses as described in each clip
-- Use Image 2 (target character reference) to maintain consistent character designs and colors
+- Character clothing must match both the script and the original manga. 
+- Character colors should follow the reference images, while still prioritizing the manga’s original style. 
 - Add panel number below each panel
 - Professional storyboard quality, simple line art with color
 - NO dialogue boxes or speech bubbles in panels
+- Object placement must follow both the manga and the script. 
+- Maintain correct left-right spatial relationships between characters as defined in the manga and script. 
+- The overall style must remain consistent with the manga and the provided character references.

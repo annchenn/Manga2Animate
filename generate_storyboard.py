@@ -5,6 +5,7 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from utils import with_retry
 
 load_dotenv()
 
@@ -12,30 +13,44 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 FEW_SHOT_DIR = BASE_DIR / "few-shot_example"
 TARGET_DIR = BASE_DIR / "target"
-SCRIPTS_OUTPUT_DIR = BASE_DIR / "results" / "scripts"
+SCRIPTS_OUTPUT_DIR = BASE_DIR / "results" / "scripts_review"
 STORYBOARD_OUTPUT_DIR = BASE_DIR / "results" / "storyboard"
-STORYBOARD_PROMPT_FILE = BASE_DIR / "prompts" / "create_storyboard_prompt.txt"
+STORYBOARD_PROMPT_FILE = BASE_DIR / "prompts" / "create_storyboard.txt"
 
 MODEL = "gemini-3-pro-image-preview"
 NUM_STORYBOARDS = 3
+EXP1 = int(os.environ.get("EXP1", "2"))
+EXP2 = int(os.environ.get("EXP2", "3"))
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+# client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+client = genai.Client(
+    vertexai=True,
+    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
+    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+)
+
+
+def find_image(directory: Path, stem: str) -> Path:
+    matches = list(directory.glob(f"{stem}.*"))
+    if not matches:
+        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
+    return matches[0]
 
 
 def build_storyboard_prompt(best_script: dict) -> str:
     template = STORYBOARD_PROMPT_FILE.read_text(encoding="utf-8")
-    script2 = json.loads((FEW_SHOT_DIR / "script2.json").read_text(encoding="utf-8"))
-    script3 = json.loads((FEW_SHOT_DIR / "script3.json").read_text(encoding="utf-8"))
+    script_exp1 = json.loads((FEW_SHOT_DIR / f"script{EXP1}.json").read_text(encoding="utf-8"))
+    script_exp2 = json.loads((FEW_SHOT_DIR / f"script{EXP2}.json").read_text(encoding="utf-8"))
 
     filled = template
     filled = filled.replace(
         "Example 1 Animation Script:\n\n",
-        f"Example 1 Animation Script:\n{json.dumps(script2, ensure_ascii=False, indent=2)}\n\n",
+        f"Example 1 Animation Script:\n{json.dumps(script_exp1, ensure_ascii=False, indent=2)}\n\n",
         1,
     )
     filled = filled.replace(
         "Example 2 Animation Script:\n\n",
-        f"Example 2 Animation Script:\n{json.dumps(script3, ensure_ascii=False, indent=2)}\n\n",
+        f"Example 2 Animation Script:\n{json.dumps(script_exp2, ensure_ascii=False, indent=2)}\n\n",
         1,
     )
     filled = filled.replace(
@@ -46,19 +61,19 @@ def build_storyboard_prompt(best_script: dict) -> str:
     return filled
 
 
-def generate_storyboard(best_script: dict, storyboard_index: int):
+def generate_storyboard(best_script: dict, storyboard_index: int, script_idx: int = 0):
     print(f"  Generating storyboard {storyboard_index + 1}/{NUM_STORYBOARDS}...")
     prompt_text = build_storyboard_prompt(best_script)
 
     image_paths = [
-        TARGET_DIR / "manga_page.jpg",
-        TARGET_DIR / "ref.png",
-        FEW_SHOT_DIR / "manga_page2.png",
-        FEW_SHOT_DIR / "ref2.jpg",
-        FEW_SHOT_DIR / "example2.png",
-        FEW_SHOT_DIR / "manga_page3.png",
-        FEW_SHOT_DIR / "ref3.jpg",
-        FEW_SHOT_DIR / "example3.png",
+        find_image(TARGET_DIR, "manga_page"),
+        find_image(TARGET_DIR, "ref"),
+        find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"),
+        find_image(FEW_SHOT_DIR, f"ref{EXP1}"),
+        find_image(FEW_SHOT_DIR, f"example{EXP1}"),
+        find_image(FEW_SHOT_DIR, f"manga_page{EXP2}"),
+        find_image(FEW_SHOT_DIR, f"ref{EXP2}"),
+        find_image(FEW_SHOT_DIR, f"example{EXP2}"),
     ]
 
     parts = []
@@ -79,33 +94,37 @@ def generate_storyboard(best_script: dict, storyboard_index: int):
         response_modalities=["IMAGE"],
     )
 
-    for chunk in client.models.generate_content_stream(
-        model=MODEL,
-        contents=contents,
-        config=config,
-    ):
-        if chunk.parts is None:
-            continue
-        part = chunk.parts[0]
-        if part.inline_data and part.inline_data.data:
-            ext = mimetypes.guess_extension(part.inline_data.mime_type) or ".png"
-            out_path = STORYBOARD_OUTPUT_DIR / f"storyboard_{storyboard_index}{ext}"
-            out_path.write_bytes(part.inline_data.data)
-            print(f"    Saved to {out_path}")
-        elif chunk.text:
-            print(chunk.text)
+    def _stream():
+        for chunk in client.models.generate_content_stream(
+            model=MODEL,
+            contents=contents,
+            config=config,
+        ):
+            if chunk.parts is None:
+                continue
+            part = chunk.parts[0]
+            if part.inline_data and part.inline_data.data:
+                ext = mimetypes.guess_extension(part.inline_data.mime_type) or ".png"
+                out_path = STORYBOARD_OUTPUT_DIR / f"storyboard_s{script_idx}_{storyboard_index}{ext}"
+                out_path.write_bytes(part.inline_data.data)
+                print(f"    Saved to {out_path}")
+            elif chunk.text:
+                print(chunk.text)
+
+    with_retry(_stream)
 
 
-def main():
+def main(idx: int = 2):
     STORYBOARD_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    best_script_path = SCRIPTS_OUTPUT_DIR / "bestScript.json"
+    best_script_path = SCRIPTS_OUTPUT_DIR / f"bestScript{idx}.json"
     if not best_script_path.exists():
         print(f"Error: {best_script_path} not found. Run evaluate_scripts.py first.")
         return
     best_script = json.loads(best_script_path.read_text(encoding="utf-8"))
 
     for i in range(NUM_STORYBOARDS):
-        generate_storyboard(best_script, i)
+        print(f"\nStoryboard {i + 1}/{NUM_STORYBOARDS}")
+        generate_storyboard(best_script, i, script_idx=idx)
 
 
 if __name__ == "__main__":

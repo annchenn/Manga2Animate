@@ -6,158 +6,313 @@ from google import genai
 from google.genai import types
 import re
 from dotenv import load_dotenv
+from utils import with_retry
 
 load_dotenv()
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).parent
-SCRIPTS_DIR = BASE_DIR / "scripts"
-PANELS_DIR = BASE_DIR / "manga_panels"
-PROMPT_FILE = BASE_DIR / "prompts" / "script_reviewer_prompt.txt"
-OUTPUT_DIR = BASE_DIR / "results" / "scripts"
-SCRIPT_PER_CLIP_DIR = BASE_DIR / "script_per_clip"
-NUM_SCRIPTS = 5
+SCRIPTS_DIR = BASE_DIR / "results" / "scripts"
+PANELS_DIR = BASE_DIR / "target" / "manga_panels"
+TARGET_DIR = BASE_DIR / "target"
+PROMPT_FILE = BASE_DIR / "prompts" / "clip_reviewer.txt"
+CHARACTER_PROMPT_FILE = BASE_DIR / "prompts" / "character_reviewer.txt"
+OUTPUT_DIR = BASE_DIR / "results" / "scripts_review"
+NUM_SCRIPTS = 3
 NUM_CLIPS = 6
-MODEL = "gemini-pro-latest"
+MODEL = "gemini-3.1-pro-preview"
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+# client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+client = genai.Client(
+    vertexai=True,
+    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
+    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+)
 
 
-def load_prompt_template() -> str:
-    return PROMPT_FILE.read_text(encoding="utf-8")
+def find_image(directory: Path, stem: str) -> Path:
+    matches = list(directory.glob(f"{stem}.*"))
+    if not matches:
+        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
+    return matches[0]
 
 
-def load_script(script_id: int) -> dict:
-    path = SCRIPTS_DIR / f"script{script_id}.json"
+def load_script(script_id: int, iteration: int = 0) -> dict:
+    path = SCRIPTS_DIR / f"script{iteration}_{script_id}.json"
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
+def strip_code_block(text: str) -> str:
+    lines = text.splitlines()
+    if lines and lines[0].strip().startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines)
+
+
 def build_clip_text(script_data: dict, clip_id: int) -> str:
-    clip = script_data["clips"][clip_id - 1]
+    clips = script_data.get("clips", [])
+    if clip_id - 1 >= len(clips):
+        return f"(clip {clip_id} not found in this script)"
+    clip = clips[clip_id - 1]
     return f"environment: {clip['environment']}\ndescription: {clip['description']}"
 
 
-# gemini pro evaluate script
+def format_characters(script: dict) -> str:
+    return "\n".join(
+        f"Character {c['id']}: {c['description']}"
+        for c in script.get("characters", [])
+    )
+
+
+def build_clip_output_format() -> str:
+    entries = []
+    for i in range(1, NUM_SCRIPTS + 1):
+        entries.append(
+            f'  "Script {i}": {{\n'
+            f'    "Character Appearance Match": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Character Emotion and Expression": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Background Accuracy": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Object Placement and Orientation": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Character Body Orientation and Spatial Relationship": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Dialogue Speaker Assignment": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Score": "X / 6"\n'
+            f'  }}'
+        )
+    summary = "\\n".join(f"Script {i}: X / 6" for i in range(1, NUM_SCRIPTS + 1))
+    entries.append(f'  "Summary": "{summary}"')
+    return "{\n" + ",\n".join(entries) + "\n}"
+
+
+def build_character_output_format() -> str:
+    entries = []
+    for i in range(1, NUM_SCRIPTS + 1):
+        entries.append(
+            f'  "Script {i}": {{\n'
+            f'    "Clothing Match": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Appearance Match": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Color Accuracy": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Small Object Description": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Left/Right Specificity": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Color Specificity": {{ "answer": "Yes/No", "explanation": "..." }},\n'
+            f'    "Score": "X / 6"\n'
+            f'  }}'
+        )
+    summary = "\\n".join(f"Script {i}: X / 6" for i in range(1, NUM_SCRIPTS + 1))
+    entries.append(f'  "Summary": "{summary}"')
+    return "{\n" + ",\n".join(entries) + "\n}"
+
+
+# --- Clip evaluation ---
+
 def evaluate_clip(clip_id: int, all_scripts: list[dict]) -> str:
-    prompt_template = load_prompt_template()
+    prompt_template = PROMPT_FILE.read_text(encoding="utf-8")
     panel_path = PANELS_DIR / f"{clip_id}.png"
 
-    # Build the script sections to fill into the prompt
-    script_sections = []
-    for i in range(1, NUM_SCRIPTS + 1):
-        script_sections.append(build_clip_text(all_scripts[i - 1], clip_id))
+    scripts_input = "\n\n".join(
+        f"Script {i}:\n{build_clip_text(all_scripts[i - 1], clip_id)}"
+        for i in range(1, NUM_SCRIPTS + 1)
+    )
 
-    # Replace the placeholder script sections in the prompt
-    filled_prompt = prompt_template
-    for i in range(1, NUM_SCRIPTS + 1):
-        filled_prompt = filled_prompt.replace(
-            f"Script {i}:\n",
-            f"Script {i}:\n{script_sections[i - 1]}\n",
-            1,
-        )
+    filled_prompt = (prompt_template
+        .replace("{NUM_SCRIPTS}", str(NUM_SCRIPTS))
+        .replace("{SCRIPTS_INPUT}", f"{format_characters(all_scripts[0])}\n\nScripts:\n\n{scripts_input}")
+        .replace("{OUTPUT_FORMAT}", build_clip_output_format())
+    )
 
     print(f"  Sending request to {MODEL}...")
-    image_bytes = panel_path.read_bytes()
-    image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/png")
+    image_part = types.Part.from_bytes(data=panel_path.read_bytes(), mime_type="image/png")
 
-    response = client.models.generate_content(
+    return with_retry(lambda: client.models.generate_content(
         model=MODEL,
         contents=[image_part, filled_prompt],
         config=types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(
-                thinking_level="HIGH",
-            ),
+            thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
         ),
+    ).text)
+
+
+# --- Character evaluation ---
+
+def evaluate_character(all_scripts: list[dict]) -> str:
+    prompt_template = CHARACTER_PROMPT_FILE.read_text(encoding="utf-8")
+
+    scripts_input = "\n\n".join(
+        f"Script {i}:\n{format_characters(all_scripts[i - 1])}"
+        for i in range(1, NUM_SCRIPTS + 1)
     )
 
-    return response.text
+    filled_prompt = (prompt_template
+        .replace("{NUM_SCRIPTS}", str(NUM_SCRIPTS))
+        .replace("{SCRIPTS_INPUT}", scripts_input)
+        .replace("{OUTPUT_FORMAT}", build_character_output_format())
+    )
+
+    manga_path = find_image(TARGET_DIR, "manga_page")
+    manga_mime = "image/jpeg" if manga_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+    panel_part = types.Part.from_bytes(data=manga_path.read_bytes(), mime_type=manga_mime)
+
+    ref_path = find_image(TARGET_DIR, "ref")
+    ref_mime = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+    ref_part = types.Part.from_bytes(data=ref_path.read_bytes(), mime_type=ref_mime)
+
+    print(f"  Sending character review request to {MODEL}...")
+    return with_retry(lambda: client.models.generate_content(
+        model=MODEL,
+        contents=[panel_part, ref_part, filled_prompt],
+        config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
+        ),
+    ).text)
 
 
-def save_scripts_per_clip(clip_id: int, all_scripts: list[dict]):
-    clip_data = {}
-    for i, script in enumerate(all_scripts, 1):
-        clip_data[f"script{i}"] = script["clips"][clip_id - 1]
-    out_path = SCRIPT_PER_CLIP_DIR / f"clip{clip_id}.json"
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(clip_data, f, ensure_ascii=False, indent=2)
+# --- Build best script ---
+
+def get_best_idx(result: dict, valid_indices: list[int] = None) -> int:
+    """Pick best script by parsing individual scores. Only consider valid_indices if provided."""
+    if valid_indices is None:
+        valid_indices = list(range(NUM_SCRIPTS))
+
+    best_score = -1
+    best_idx = valid_indices[0]
+    for idx in valid_indices:
+        score_str = result.get(f"Script {idx + 1}", {}).get("Score", "0 / 6")
+        match = re.search(r"\d+", str(score_str))
+        score = int(match.group()) if match else 0
+        if score > best_score:
+            best_score = score
+            best_idx = idx
+
+    return best_idx
 
 
-def parse_scores_from_result(result_text: str) -> list[int]:
-    """Extract scores for each script from the Summary section. Returns list of scores indexed 0..NUM_SCRIPTS-1."""
-    summary_match = re.search(r"\*{0,2}Summary:?\*{0,2}(.*)", result_text, re.DOTALL | re.IGNORECASE)
-    if summary_match:
-        summary_text = summary_match.group(1)
-        scores = []
-        for match in re.finditer(r"Script\s+\d+\s*:\s*(\d+)\s*/\s*\d+", summary_text, re.IGNORECASE):
-            scores.append(int(match.group(1)))
-        if scores:
-            return scores
-    return []
+def build_best_script(all_scripts: list[dict], iteration: int = 0) -> dict:
+    # Best characters from character review
+    char_result = json.loads((OUTPUT_DIR / f"character{iteration}.json").read_text(encoding="utf-8"))
+    best_char_idx = get_best_idx(char_result)
+    print(f"  Characters: best script is Script{best_char_idx + 1}")
+    best_characters = all_scripts[best_char_idx]["characters"]
 
-
-def build_best_script(all_scripts: list[dict]) -> dict:
-    """Read saved result files, pick best-scoring script per clip, assemble new script JSON."""
+    # Best clip from each clip review
     best_clips = []
     for clip_id in range(1, NUM_CLIPS + 1):
-        result_path = OUTPUT_DIR / f"clip_{clip_id}_result.txt"
-        result_text = result_path.read_text(encoding="utf-8")
-        scores = parse_scores_from_result(result_text)
+        result = json.loads((OUTPUT_DIR / f"clip_{clip_id}_{iteration}.json").read_text(encoding="utf-8"))
 
-        if len(scores) != NUM_SCRIPTS:
-            print(f"  Warning: expected {NUM_SCRIPTS} scores for clip {clip_id}, got {len(scores)}. Defaulting to script1.")
-            best_idx = 0
-        else:
-            best_idx = scores.index(max(scores))
+        # Force score to 0 for scripts that don't have this clip
+        for i in range(NUM_SCRIPTS):
+            if clip_id - 1 >= len(all_scripts[i]["clips"]):
+                result[f"Script {i + 1}"] = {"Score": "0 / 6"}
 
-        best_script_num = best_idx + 1
-        print(f"  Clip {clip_id}: best script is script{best_script_num} (score {scores[best_idx] if scores else '?'})")
+        valid_indices = [
+            i for i in range(NUM_SCRIPTS)
+            if clip_id - 1 < len(all_scripts[i]["clips"])
+        ]
+        if not valid_indices:
+            print(f"  Clip {clip_id}: no script has this clip, skipping.")
+            continue
+
+        best_idx = get_best_idx(result, valid_indices)
+        print(f"  Clip {clip_id}: best script is Script{best_idx + 1}")
 
         clip = all_scripts[best_idx]["clips"][clip_id - 1]
         best_clip = {k: v for k, v in clip.items() if k != "visual_analysis"}
         best_clips.append(best_clip)
 
     return {
-        "characters": all_scripts[0]["characters"],
+        "characters": best_characters,
         "clips": best_clips,
     }
 
 
-def main():
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    SCRIPT_PER_CLIP_DIR.mkdir(exist_ok=True)
+# --- Build feedback ---
 
-    # Load all scripts
+def build_feedback(iteration: int = 0) -> dict:
+    char_result = json.loads((OUTPUT_DIR / f"character{iteration}.json").read_text(encoding="utf-8"))
+    best_char_idx = get_best_idx(char_result)
+    best_char_key = f"Script {best_char_idx + 1}"
+    char_feedback = char_result.get(best_char_key, {})
+
+    clips_feedback = []
+    all_scripts = [load_script(i, iteration) for i in range(1, NUM_SCRIPTS + 1)]
+    for clip_id in range(1, NUM_CLIPS + 1):
+        result = json.loads((OUTPUT_DIR / f"clip_{clip_id}_{iteration}.json").read_text(encoding="utf-8"))
+        valid_indices = [
+            i for i in range(NUM_SCRIPTS)
+            if clip_id - 1 < len(all_scripts[i]["clips"])
+        ]
+        best_idx = get_best_idx(result, valid_indices) if valid_indices else 0
+        best_key = f"Script {best_idx + 1}"
+        clips_feedback.append({
+            "clip_id": clip_id,
+            "feedback": result.get(best_key, {}),
+        })
+
+    return {
+        "character": {
+            "feedback": char_feedback,
+        },
+        "clips": clips_feedback,
+    }
+
+
+# --- Main ---
+
+def main(iteration: int = 0):
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
     print("Loading scripts...")
     all_scripts = []
     for i in range(1, NUM_SCRIPTS + 1):
-        path = SCRIPTS_DIR / f"script{i}.json"
+        path = SCRIPTS_DIR / f"script{iteration}_{i}.json"
         if not path.exists():
             print(f"  Error: {path} not found.")
             sys.exit(1)
-        all_scripts.append(load_script(i))
-        print(f"  Loaded script{i}.json")
+        all_scripts.append(load_script(i, iteration))
+        print(f"  Loaded script{iteration}_{i}.json")
+
+    # Evaluate character descriptions
+    print("\n[Character] Evaluating character descriptions across all scripts...")
+    char_result = evaluate_character(all_scripts)
+    if char_result is None:
+        print("  Character review failed. Defaulting to Script 1.")
+        char_result = '{"Highest Script": "Script 1"}'
+    char_path = OUTPUT_DIR / f"character{iteration}.json"
+    char_path.write_text(strip_code_block(char_result), encoding="utf-8")
+    print(f"  Character review saved to {char_path}")
 
     # Evaluate clip by clip
     for clip_id in range(1, NUM_CLIPS + 1):
         print(f"\n[Clip {clip_id}/{NUM_CLIPS}] Evaluating all scripts against panel {clip_id}...")
-        save_scripts_per_clip(clip_id, all_scripts)
         result = evaluate_clip(clip_id, all_scripts)
-
-        out_path = OUTPUT_DIR / f"clip_{clip_id}_result.txt"
-        out_path.write_text(result, encoding="utf-8")
+        if result is None:
+            print(f"  Clip {clip_id} review failed. Defaulting to Script 1.")
+            result = '{"Highest Script": "Script 1"}'
+        cleaned = strip_code_block(result)
+        out_path = OUTPUT_DIR / f"clip_{clip_id}_{iteration}.json"
+        out_path.write_text(cleaned, encoding="utf-8")
         print(f"  Result saved to {out_path}")
-        print(f"  Preview: {result[:200]}...")
 
     print("\nDone! All results saved to", OUTPUT_DIR)
 
-    # Build and save best script
-    print("\nBuilding best script from highest-scoring clips...")
-    best_script = build_best_script(all_scripts)
-    best_path = OUTPUT_DIR / "bestScript.json"
+    # Build best script
+    print("\nBuilding best script...")
+    best_script = build_best_script(all_scripts, iteration)
+    best_path = OUTPUT_DIR / f"bestScript{iteration}.json"
     with open(best_path, "w", encoding="utf-8") as f:
         json.dump(best_script, f, ensure_ascii=False, indent=2)
     print(f"Best script saved to {best_path}")
+
+
+    # Build feedback
+    print("\nExtracting feedback...")
+    feedback = build_feedback(iteration)
+    feedback_path = OUTPUT_DIR / f"feedback{iteration}.json"
+    with open(feedback_path, "w", encoding="utf-8") as f:
+        json.dump(feedback, f, ensure_ascii=False, indent=2)
+    print(f"Feedback saved to {feedback_path}")
+
 
 
 if __name__ == "__main__":

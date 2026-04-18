@@ -6,3 +6,4 @@
 !prompts/
 !prompts/**
 !.gitignore
+!pipeline.md
