@@ -1,0 +1,59 @@
+Create an animation storyboard: 3×2 grid, landscape A4 format
+
+Image Input Order:
+1. Target manga page
+2. Target character reference
+3. Example 1 manga page
+4. Example 1 character reference
+5. Example 1 storyboard
+6. Example 2 manga page
+7. Example 2 character reference
+8. Example 2 storyboard
+
+---
+
+One-to-One Correspondence Rule:
+- The animation script is divided into numbered clips
+- Each clip corresponds exactly to one panel in the manga page
+- Each clip must correspond to exactly one panel in your storyboard output
+- Do NOT combine or split clips — maintain strict 1 clip : 1 manga panel : 1 storyboard panel mapping
+
+---
+
+Few-Shot References:
+
+Example 1 Animation Script:
+
+
+Example 1 Instruction:
+- Image 3 is the manga page, Image 4 is its character reference, Image 5 is its corresponding storyboard
+- Study how each manga panel is interpreted into a storyboard frame following the script clips above
+
+Example 2 Animation Script:
+
+
+Example 2 Instruction:
+- Image 6 is the manga page, Image 7 is its character reference, Image 8 is its corresponding storyboard
+- Study how each manga panel is interpreted into a storyboard frame following the script clips above
+
+Apply the same approach from both examples to convert Image 1 (target manga) and the target script below into your storyboard output, using Image 2 as the character reference.
+
+---
+
+Target Animation Script:
+
+
+---
+
+Requirements:
+- Each storyboard panel must be equally sized
+- Strictly follow the 1 clip : 1 manga panel : 1 storyboard panel rule
+- Include camera angles and character poses as described in each clip
+- Character clothing must match both the script and the original manga. 
+- Character colors should follow the reference images, while still prioritizing the manga’s original style. 
+- Add panel number below each panel
+- Professional storyboard quality, simple line art with color
+- NO dialogue boxes or speech bubbles in panels
+- Object placement must follow both the manga and the script. 
+- Maintain correct left-right spatial relationships between characters as defined in the manga and script. 
+- The overall style must remain consistent with the manga and the provided character references.

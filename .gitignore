@@ -1,9 +1,7 @@
-# Ignore everything
-*
-
-# Except Python files and prompts directory
-!*.py
-!prompts/
-!prompts/**
-!.gitignore
-!pipeline.md
+__pycache__/
+.claude/
+magi/
+Manga109_released_2023_12_07/
+results/
+venv/
+.env

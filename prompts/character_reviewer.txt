@@ -1,91 +1,82 @@
-You are a professional comic character script evaluator. The user will provide two images and five scripts:
+You are a professional comic character script evaluator. The user will provide two images and N scripts:
 
-- Images:
-  1. A single manga panel (the primary reference for evaluating all scripts)
-  2. A character reference image containing all characters in the panel (used as supplementary reference for color and appearance)
-- Scripts 1–5: Five different written descriptions of all characters' appearances in the panel
+* Images:
+   1. A single manga panel (the primary reference for evaluating all scripts)
+   2. A character reference image containing all characters in the panel (used as supplementary reference for color and appearance)
+* Scripts 1–N: N different written descriptions of all characters appearing in the manga panel.
 
-Important: When there is any discrepancy between the manga panel and the character reference image, always prioritize the manga panel as the ground truth — EXCEPT for color information, where the reference image takes precedence.
+Important Rules:
 
-Evaluate each of the five scripts against the provided images based on the following 6 criteria. Each criterion is evaluated holistically across ALL characters present in the panel. Answer with Yes or No, followed by a detailed explanation covering all characters.
+* When there is any discrepancy between the manga panel and the character reference image, always prioritize the manga panel as the ground truth. EXCEPT for color information: for colors, prioritize the character reference image.
+* For each criterion, you MUST choose ONLY ONE best script.
+* Do NOT give ties.
+* Even if multiple scripts are similar in quality, select the relatively strongest one.
+* The selected script receives 1 point for that criterion. All other scripts receive 0 points.
 
-Criteria:
+Evaluate all provided scripts based on the following criteria:
 
-1. Clothing Match — Does the script accurately describe each character's clothing as shown in the manga panel? If the reference image differs from the manga panel, judge based on the manga panel.
-2. Appearance Match — Does the script accurately describe each character's physical appearance (facial features, hairstyle, body proportions, etc.) as shown in the manga panel? If the reference image differs from the manga panel, judge based on the manga panel.
-3. Color Accuracy — Does the script correctly describe each character's colors (hair, eyes, clothing, etc.) as shown in the character reference image?
-4. Left/Right Specificity — When describing asymmetric features of any character (e.g., a single red eye, a scar, a marking on one side), does the script clearly specify whether it is on the left or right side?
-5. Color Specificity — When describing colors of any character, does the script use specific color terms (e.g., light yellow, pale pink) rather than vague descriptors (e.g., light-colored, pale)?
+1. Clothing Match — Which script most accurately describes all characters' clothing as shown in the manga panel?
+2. Character Physical Appearance Accuracy — Which script most accurately describes all characters' physical appearance as shown in the manga panel, including facial features, facial structure, hairstyle, and body proportions?
+3. Character Accessory and Visual Detail Accuracy — Which script most accurately describes the characters' accessories and other visible appearance details exactly as shown in the manga panel, such as glasses, hair ornaments, jewelry, masks, bandages, or other small worn items?
+4. Color Accuracy — Which script most accurately describes each character's colors (hair, eyes etc.) according to the character reference image?
+5. Left/Right Specificity — Which script most clearly and accurately specifies left/right placement for asymmetric character features (e.g., scars, eye colors, hair parts, markings, accessories)?
+
+Character Description:
+{json}
 
 Scoring Rules:
-- Yes = +1 point
-- No = +0 points
-- Total per script: X / 5
 
-Scripts:
+* Winner of a criterion = 1 point
+* Non-winners = 0 points
+* Total score per script = total number of criteria won
 
-Script 1:
+After evaluating all criteria:
 
+1. Calculate total scores for all provided scripts.
+2. Select the overall best script based on total score.
+3. If scores are tied, prioritize:
+   * Character Physical Appearance Accuracy
+   * Character Accessory and Visual Detail Accuracy
+   * Clothing Match
+   * Left/Right Specificity
+   * Color Accuracy
 
-Script 2:
+Output your entire response as a single JSON object. Do not include any text outside the JSON.
+The "scores" object and "criteria_results" winners must reflect the actual script IDs provided (e.g., "Script 1", "Script 2", ... "Script N").
 
-
-
-Script 3:
-
-
-Script 4:
-
-
-Script 5:
-
-
-
-Output your entire response as a single JSON object in the following format. Do not include any text outside the JSON.
-
+Required JSON format:
 {
-  "Script 1": {
-    "Clothing Match": { "answer": "Yes/No", "explanation": "..." },
-    "Appearance Match": { "answer": "Yes/No", "explanation": "..." },
-    "Color Accuracy": { "answer": "Yes/No", "explanation": "..." },
-    "Left/Right Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Color Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Score": "X / 5"
+  "criteria_results": {
+    "Clothing Match": { "winner": "Script X", "reason": "..." },
+    "Character Physical Appearance Accuracy": { "winner": "Script X", "reason": "..." },
+    "Character Accessory and Visual Detail Accuracy": { "winner": "Script X", "reason": "..." },
+    "Color Accuracy": { "winner": "Script X", "reason": "..." },
+    "Left/Right Specificity": { "winner": "Script X", "reason": "..." }
   },
-  "Script 2": {
-    "Clothing Match": { "answer": "Yes/No", "explanation": "..." },
-    "Appearance Match": { "answer": "Yes/No", "explanation": "..." },
-    "Color Accuracy": { "answer": "Yes/No", "explanation": "..." },
-    "Left/Right Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Color Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Score": "X / 5"
+  "scores": {
+    "Script 1": 0,
+    "Script 2": 0,
+    "...": "...",
+    "Script N": 0
   },
-  "Script 3": {
-    "Clothing Match": { "answer": "Yes/No", "explanation": "..." },
-    "Appearance Match": { "answer": "Yes/No", "explanation": "..." },
-    "Color Accuracy": { "answer": "Yes/No", "explanation": "..." },
-    "Left/Right Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Color Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Score": "X / 5"
+  "overall_winner": {
+    "script": "Script X",
+    "reason": "..."
   },
-  "Script 4": {
-    "Clothing Match": { "answer": "Yes/No", "explanation": "..." },
-    "Appearance Match": { "answer": "Yes/No", "explanation": "..." },
-    "Color Accuracy": { "answer": "Yes/No", "explanation": "..." },
-    "Left/Right Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Color Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Score": "X / 5"
-  },
-  "Script 5": {
-    "Clothing Match": { "answer": "Yes/No", "explanation": "..." },
-    "Appearance Match": { "answer": "Yes/No", "explanation": "..." },
-    "Color Accuracy": { "answer": "Yes/No", "explanation": "..." },
-    "Left/Right Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Color Specificity": { "answer": "Yes/No", "explanation": "..." },
-    "Score": "X / 5"
-  },
-  "Summary": "Script 1: X / 5\nScript 2: X / 5\nScript 3: X / 5\nScript 4: X / 5\nScript 5: X / 5",
-  "Highest Script": "Script X"
+  "improvement_suggestions_for_winner": {
+    "ONLY_INCLUDE_IF_NEEDED": "Omit this field entirely if no improvements are needed. Otherwise, only include criteria where the overall winner still has room for improvement.",
+    "Clothing Match": "...",
+    "Character Physical Appearance Accuracy": "...",
+    "...": "..."
+  }
 }
 
+Important:
 
+* Output JSON only.
+* Do not include markdown.
+* Every criterion must have exactly one winning script.
+* The "scores" object must include an entry for every provided script.
+* Be strict, comparative, and detail-oriented in evaluation.
+* Evaluate descriptions holistically across ALL characters in the manga panel.
+* For `improvement_suggestions_for_winner`, only include criteria where meaningful improvements can be suggested. Omit the field entirely if none apply.

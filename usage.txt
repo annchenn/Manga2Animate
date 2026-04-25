@@ -1,0 +1,4 @@
+conda activate project
+python -m src.run_all -t <target_name>
+or
+python src/run_all.py -t <target_name>

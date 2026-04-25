@@ -1,0 +1,44 @@
+{
+  "characters": [
+    {
+      "id": 1,
+      "description": "Adult male; short, slightly unkempt blond hair; sharp facial features with blue eyes; light-colored collared dress shirt under a dark-colored vest; likely wearing matching trousers (not fully visible); professional attire."
+    },
+    {
+      "id": 2,
+      "description": "Adult female with a slender build; short, straight white bob haircut with long bangs that fully cover her right eye; light-colored eyes (left eye visible), typically half-lidded, giving a calm, detached expression. She wears a dark blue cardigan over a light, vertically striped button-up shirt with a white collar. She holds a manila folder close to her chest with one hand, standing with a composed, slightly reserved posture."
+    }
+  ],
+  "clips": [
+    {
+      "id": 1,
+      "environment": "Daytime. Inside a well-lit office with wood-paneled furniture. The atmosphere is professional and serious.",
+      "description": "Close-up shot on a dark wooden desk where two official-looking documents with typed text and tables are laid out. Dialogue begins with Character[1]'s off-screen voice. Dialogue(Character[1]): 'Yor seems to have made inroads into Melinda's mom group.' Character[2] replies off-screen Dialogue(Character[2]): 'Really. Your briar?'"
+    },
+    {
+      "id": 2,
+      "environment": "A warm daytime office setting. A large bookshelf filled with binders lines the back wall. Character[1] sits at the desk in front of him, which features a glowing table lamp with a beige shade. On the wall in front of the desk, a framed certificate is displayed.",
+      "description": "An eye-level over-the-shoulder shot from behind Character[2]'s right shoulder. Character[2]'s back and right shoulder are prominent in the foreground as she stands facing Character[1]. Character[1] is sitting at his desk with his eyes closed in a calm, contemplative expression. Character[1] says Dialogue(Character[1]): 'Who can say? That's what I hope to find out. But I can't imagine I'll be able to extract much useful intel from yor herself.' Character[2] responds Dialogue(Character[2]): 'No. Not from your briar... However, if I were to take over the role of your wife...'"
+    },
+    {
+      "id": 3,
+      "environment": "Daytime. The same warmly lit office setting. A large brown wooden door is on the far left. A tall bookshelf filled with binders is on the right. In between, at Character[2]'s left rear, a shelf holds numerous medicine jars.",
+      "description": "An eye-level reverse over-the-shoulder shot looking past Character[1]'s blonde hair at Character[2]. Character[2] stands facing him, holding a tan folder against her chest with her right hand. Her expression is serious and composed, yet conceals a complex internal struggle as she listens. Character[1] explains Dialogue(Character[1]): 'No, I need you in a support role on this. If we end up deciding that Melinda does have intelligence value, you'll have to infiltrate her social circle.' The description captures Character[2]'s mental processing of the entire dialogue sequence as she listens, culminating in her internal groan Dialogue(Character[2]): (internal monologue)'UGH...' before finally responding, Dialogue(Character[2]): 'I understand, sir.'"
+    },
+    {
+      "id": 4,
+      "environment": "Daytime. A high-angle wide shot of the office, showing the complete layout from above. On the left side, Character[1] is seated at his desk, next to a tall wooden bookshelf filled with binders. The desk surface holds several scattered white papers/documents and a small table lamp with a beige shade. Against the back wall, centered in the room, sits a lower wooden chest of drawers. On the far right wall stands another tall storage cabinet.",
+      "description": "A high-angle overhead wide shot showing Character[1] seated at his desk on the left, looking toward Character[2] who stands in the center of the room with her back to the camera. Character[2] says Dialogue(Character[2]): 'There are patients here who might be connected to Melinda ... but I don't think they would let you in to see them.' Character[1] responds with a trace of professional resignation Dialogue(Character[1]): 'My record here's still not good enough, huh?'"
+    },
+    {
+      "id": 5,
+      "environment": "Daytime. The same office interior. The background features a large wooden storage cabinet with glass window panels, rendered in a soft focus to keep the attention on the character.",
+      "description": "A close-up shot of Character[2]'s face. She is looking slightly downward and to the side with a stoic, somber expression. Her white hair frames her face as she speaks in a steady, serious tone. Character[2] says Dialogue(Character[2]): 'No. The director won't assign you any patients out of personal spite.'"
+    },
+    {
+      "id": 6,
+      "environment": "An abstract, stylized space. The background is a bright, comic-book-style pattern of yellow with orange polka dots and speed lines.",
+      "description": "A comedic close-up on Character[1]'s deadpan, slightly resigned face, framed against the stylized comic background."
+    }
+  ]
+}

@@ -23,14 +23,14 @@ One-to-One Correspondence Rule:
 Few-Shot References:
 
 Example 1 Animation Script:
-
+{Example 1 Animation Script}
 
 Example 1 Instruction:
 - Image 3 is the manga page, Image 4 is its character reference, Image 5 is its corresponding storyboard
 - Study how each manga panel is interpreted into a storyboard frame following the script clips above
 
 Example 2 Animation Script:
-
+{Example 2 Animation Script}
 
 Example 2 Instruction:
 - Image 6 is the manga page, Image 7 is its character reference, Image 8 is its corresponding storyboard
@@ -41,7 +41,7 @@ Apply the same approach from both examples to convert Image 1 (target manga) and
 ---
 
 Target Animation Script:
-
+{Target Animation Script}
 
 ---
 
@@ -49,11 +49,11 @@ Requirements:
 - Each storyboard panel must be equally sized
 - Strictly follow the 1 clip : 1 manga panel : 1 storyboard panel rule
 - Include camera angles and character poses as described in each clip
-- Character clothing must match both the script and the original manga. 
-- Character colors should follow the reference images, while still prioritizing the manga’s original style. 
+- Character clothing must match both the script and the original manga.
+- Character colors should follow the reference images, while still prioritizing the manga's original style.
 - Add panel number below each panel
 - Professional storyboard quality, simple line art with color
 - NO dialogue boxes or speech bubbles in panels
-- Object placement must follow both the manga and the script. 
-- Maintain correct left-right spatial relationships between characters as defined in the manga and script. 
+- Object placement must follow both the manga and the script.
+- Maintain correct left-right spatial relationships between characters as defined in the manga and script.
 - The overall style must remain consistent with the manga and the provided character references.

@@ -1,0 +1,13 @@
+<0>: He completely saw through it...
+<0>: If I put yes here, it'll be essentially the same as admitting my question was meant for the president!
+<0>: WHA... what should I do?!
+<1>: C'mon, hurry up.
+<2>: Well,
+<2>: The results are in.
+<2>: 3 people.
+<1>: You guys, too?!
+<1>: Well, either way,
+<1>: My eyes aren't good enough to tell the years apart.
+<1>: It would have been impossible for me to corner shinomya.
+<1>: I guess that's all for this game.
+<3>: game, set, match.

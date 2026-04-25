@@ -1,0 +1,13 @@
+(1) Consistent Panel Size
+(2) Overall Art Style Consistency
+(3) Character Identity Preservation
+(4) Color Presence & Visual Variety
+(5) Only Existing Characters
+(6) Narrative Order Consistency
+(7) Script Alignment Accuracy
+(8) No Dialogue Boxes
+(9) Rich Background
+(10) Background Consistency
+(11) Character & Object Position Consistency
+(12) Object Layout Match
+(13) Left/Right Feature Consistency

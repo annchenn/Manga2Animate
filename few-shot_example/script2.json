@@ -1,0 +1,60 @@
+{
+  "characters": [
+    {
+      "id": 1,
+      "description": "Teenage male, average build; short, messy blond hair; sharp blue eyes that often appear tired or intense; wears a black, high-collared gakuran-style school uniform jacket with gold buttons and a decorative gold chain (aiguillette) on the collar; matching black trousers; black dress shoes."
+    },
+    {
+      "id": 2,
+      "description": "Teenage male, slim build; medium-length black hair with a slightly messy texture; long bangs that specifically cover his left eye; soft facial features with a calm yet analytical expression; visible eye appears sharp and observant; wears a black school-style blazer uniform with a light-colored shirt underneath; overall appearance is simple and understated; often shown in a side-facing posture or slightly turning his head, giving off a composed, observant, and logical personality."
+    },
+    {
+      "id": 3,
+      "description": "Teenage female, cheerful demeanor; shoulder-length pink hair with a large black bow on top of her head, with bangs; large blue eyes; wears a black, long-sleeved dress with a white sailor-style collar, white cuffs, and a thin red ribbon tie; black stockings; black loafers."
+    },
+    {
+      "id": 4,
+      "description": "Teenage female, serious expression; long brown hair with bangs, mostly worn down with two loose low side ponytails on both sides, tied with red hair ties; dark reddish-brown eyes; wears a black, long-sleeved dress with a white sailor-style collar, white cuffs, and a thin red ribbon tie; black stockings; black loafers."
+    },
+    {
+      "id": 5,
+      "description": "Teenage female, slender build; long black hair styled in a half-up ponytail tied with a large red ribbon, with bangs framing her face; large, expressive red eyes; wears a black, long-sleeved dress with a white sailor-style collar, white cuffs, and a thin red ribbon tie; black stockings; black loafers."
+    },
+    {
+      "id": 6,
+      "description": "An omniscient, off-screen male voice that provides exposition and commentary."
+    }
+  ],
+  "clips": [
+    {
+      "id": 1,
+      "environment": "Daytime. Inside the Student Council Room, a well-lit space with a classic, scholarly atmosphere with soft light filtering in from behind, creating a high-contrast manga-style lighting.",
+      "description": "Medium shot with a left-to-right character composition. On the left side of the viewer, Character[2] is partially visible in profile, with long bangs covering his left eye, maintaining a calm and neutral expression while facing slightly toward the center. In the center, Character[1] stands with eyes closed and a composed expression, facing slightly forward. On the right side Character[3] is facing Character[2] and Character[1] and speaking. Dialogue(Character[3]): 'Um, well. Naturally it has to be one of the boys, right?' Dialogue(Character[2]): 'We're not allowed to reveal our answers, remember?'"
+    },
+    {
+      "id": 2,
+      "environment": "Daytime. Inside the Student Council Room, with the focus shifted to another corner of the room.",
+      "description": "Medium shot focusing on Character[4] in the foreground. She looks slightly away, maintaining a prim and proper posture. Character[3] asks. Dialogue(Character[3]): 'Could it be Miko-chan?'. Character[4] responds demurely. Dialogue(Character[4]): 'I'm not allowed to reveal my answer, so...'"
+    },
+    {
+      "id": 3,
+      "environment": "Daytime. Inside the Student Council Room.",
+      "description": "A dynamic multi-layered shot. In the background left, Character[3] appears flustered and overwhelmed, raising both hands to her head while shouting in frustration. On the right side, Character[2] sits on the sofa at the right of the viewer, calmly observing the scene. The composition creates a contrast between Character[3]'s exaggerated emotional outburst and the calmer reactions of the others. Character[3] shouts. Dialogue(Character[3]): 'I can't believe you guys!'; Character[2] responds. Dialogue(Character[2]): 'You say that, but it was probably you anyways, Fujiwara-senpai.'; Character[3] responds. Dialogue(Character[3]): 'I can't tell you! As always'; At the same time, in the center foreground, Character[5] is positioned lower in the frame, slightly hunched forward with a tense posture, partially facing downward as if reacting or processing the situation. She is thinking. Dialogue(Character[5]): 'Wait...'."
+    },
+    {
+      "id": 4,
+      "environment": "A stylized internal mental space representing Character[5]'s thoughts, with a dark, abstract background emphasizing contrast and focus on the coin.",
+      "description": "Extreme close-up from Character[5]'s perspective. On the left side of the frame, part of Character[5]'s right face is visible in profile, her eye widened in sudden realization, with a small sweat drop indicating tension. At the center-right, her hand holds up a 10-yen coin close to her face. The coin is enlarged and sharply detailed, dominating the composition. The engraved text and year on the coin are clearly visible, drawing attention as the key clue. High-contrast shading and radial impact lines emphasize the moment of discovery. Character[5] is thinking. Dialogue(Character[5]): 'This \"Yes\" coin...' A close-up on her hand holding a 10-yen coin. Dialogue(Character[5]): 'This isn't the president's 1989 coin!'"
+    },
+    {
+      "id": 5,
+      "environment": "A stylized internal mental space representing Character[5]'s thoughts, with a dark, abstract background and radial lines emphasizing intensity and realization.",
+      "description": "Extreme close-up from Character[5]'s perspective. The frame is filled with multiple enlarged 10-yen coins floating in view, creating a sense of analytical focus. At the lower right, Character[5]'s right hand fingers hold one coin in the foreground, sharply detailed, while two additional coins appear in the upper area of the frame for comparison. The repetition of coins emphasizes discrepancy and counting. High-contrast shading and dense radial lines convey a sudden surge of realization. Dialogue(Character[5]): '!!' This large emphasized \"!!\" indicates shock. Dialogue(Character[5]): 'There's an extra 1981 coin now!'"
+    },
+    {
+      "id": 6,
+      "environment": "Daytime. Inside the Student Council Room, the atmosphere becomes tense as a realization unfolds. The background is dimmed with gradient shading, emphasizing dramatic contrast.",
+      "description": "A split-composition medium shot. On the right foreground, an extreme close-up of Character[5]'s face fills the frame, her right eye wide open with a visible sweat drop, expressing shock and sudden realization. On the left mid-ground, Character[1] is shown in profile, slightly turned left away, his posture calm and composed. His expression is subtle and controlled, suggesting quiet confidence. The spatial separation between foreground (Character[5]) and mid-ground (Character[1]) highlights the contrast between realization and hidden intent. Dialogue(Character[5]): 'Wait, does this mean that-'; and Dialogue(Narrator[6]): 'Of course, Shirogane was not without a plan of his own.'"
+    }
+  ]
+}

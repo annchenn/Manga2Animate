@@ -1,0 +1,24 @@
+{
+  "characters": [
+    {
+      "id": 1,
+      "description": "Young teenage girl with a slender build; Medium-length pink hair with a black bow on the left side; Fair skin and bright blue eyes; Wearing a black long-sleeve dress with a white collar; Standing in the center with an energetic pose, smiling brightly"
+    },
+    {
+      "id": 2,
+      "description": "Young adult male with a tall and slim build; Short blonde hair swept to the side; Fair skin with a calm and confident expression; Wearing a black high-collar uniform; Raising one hand in a stylized pose"
+    },
+    {
+      "id": 3,
+      "description": "Young adult male with a lean build; Medium-length dark blue hair covering one eye; Fair skin with a composed expression; Wearing a black uniform; One arm raised above his head in a dramatic pose"
+    },
+    {
+      "id": 4,
+      "description": "Young teenage girl with a slender build; Long black hair tied with red ribbons; Fair skin and red eyes; Wearing a black uniform-style dress with a white collar; Positioned on the lower left, forming a finger heart gesture with a gentle smile"
+    },
+    {
+      "id": 5,
+      "description": "Young teenage girl with a petite build; Short brown hair with bangs; Fair skin and large brown eyes; Wearing a black dress with a white collar; Positioned on the lower right, forming a finger heart gesture with a soft expression"
+    }
+  ]
+}

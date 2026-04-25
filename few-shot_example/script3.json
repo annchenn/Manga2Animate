@@ -1,0 +1,60 @@
+{
+  "characters": [
+    {
+      "id": 1,
+      "description": "Teenage female, slender build; long black hair styled in a half-up ponytail tied with a red ribbon, with straight bangs and sidelocks; large, intelligent red eyes; wears a black, long-sleeved, knee-length dress uniform with a white collar and a thin black ribbon."
+    },
+    {
+      "id": 2,
+      "description": "Teenage male, average build; short, slightly messy blond hair; sharp, intense blue eyes that often appear tired; wears a black, high-collared gakuran-style school uniform, adorned with a golden Aiguillette of office around his neck."
+    },
+    {
+      "id": 3,
+      "description": "Teenage female, average build; long, light pink hair with bangs, topped with a large black ribbon on her head; cheerful blue eyes; wears a black, long-sleeved, knee-length dress uniform with a white collar and a thin black ribbon."
+    },
+    {
+      "id": 4,
+      "description": "Teenage male, slender build with a tendency to slouch; medium-length dark messy hair with long bangs that often cover one eye; dark, gloomy eyes; wears a black, high-collared gakuran-style school uniform; almost always has a pair of headphones resting around his neck."
+    },
+    {
+      "id": 5,
+      "description": "Teenage female, petite build; shoulder-length brown hair with bangs and front pigtails tied with red ribbons; large, determined brown eyes; black long-sleeved uniform bodice with a white sailor collar, white folded cuffs, and a red ribbon tie; black pleated knee-length uniform skirt."
+    },
+    {
+      "id": 6,
+      "description": "Disembodied male narrator with a deep, authoritative voice."
+    }
+  ],
+  "clips": [
+    {
+      "id": 1,
+      "environment": "Daytime. Abstract psychological space. The background is heavily textured with dark noise and intense vertical lines, emphasizing a sudden, shocking realization and high tension.",
+      "description": "Extreme close-up shot of Character[1]'s face. She has a panicked expression with wide eyes, tiny pupils, an open mouth, and a bead of sweat on her cheek. She internally panics as she processes the situation. Dialogue(Character[1]): 'He completely saw through it... If I put yes here, it'll be essentially the same as admitting my question was meant for the president!'"
+    },
+    {
+      "id": 2,
+      "environment": "Daytime. Inside a well-lit room next to a window. Outside, a clear sky with scattered clouds is visible. Inside, a desk sits in front of the window with dark curtains framing the edge.",
+      "description": "Over-the-shoulder shot from behind Character[1]. In the right foreground, Character[1]'s face is partially visible in profile; she is sweating heavily, looking down in a state of sheer panic. Dialogue(Character[1]): 'WHA... what should I do?!' In the midground, Character[2] sits comfortably at the desk facing forward. He has his eyes closed in an exasperated manner and is impatiently tapping his fingers against the table. Dialogue(Character[2]): 'C'mon, hurry up.'"
+    },
+    {
+      "id": 3,
+      "environment": "Daytime. Indoor club room setting. A clean and simple white background that focuses entirely on the character's facial expression.",
+      "description": "Extreme close-up on Character[3]'s face. She has her eyes closed in an uneasy, slightly forced smile with a bead of sweat on her cheek, appearing visibly nervous. Dialogue(Character[3]): 'Well, The results are in.'"
+    },
+    {
+      "id": 4,
+      "environment": "Daytime. Indoor club room setting. A flat-screen TV, framed pictures, and dark wooden wainscoting are visible on the wall in the background. Dense vertical action lines overlay the wall, creating a heavy and intensely tense atmosphere.",
+      "description": "Medium shot showing the group's dramatic reaction. Character[3] stands in the center with a strained, awkward smile and a sweat drop, delivering the results. Dialogue(Character[3]): '3 people.' To her right, Character[4] sits looking taken aback, also sweating. In the foreground left, Character[1] sits face to face with Character[4], with her head bowed nervously, her face heavily shadowed. On the far right edge, Character[2] is seen in a partial profile, his face pale, mouth agape, and sweating profusely in utter shock.Character[2] thinks in disbelief. Dialogue(Character[2]): 'You guys, too?!'"
+    },
+    {
+      "id": 5,
+      "environment": "Afternoon. A corner of the Student Council room, slightly apart from the main group, creating a sense of a side conversation.",
+      "description": "Medium two-shot focusing on Character[2] and Character[5]. Character[5] is on the right side of the picture and stares to the right with wide eyes and a surprised, nervous expression, clutching her hair. Character[3] speaks. Dialogue(Character[5]): 'Well, either way, my eyes aren't good enough to tell the years apart. Character[2] is seen in profile on the left, looking forward with a resigned expression and a drop of sweat on his cheek, his hand holding up a small coin in the foreground' Dialogue(Character[2]): 'It would have been impossible for me to corner Shinomiya.'"
+    },
+    {
+      "id": 6,
+      "environment": "Late afternoon. Exterior shot of a classic brick school building with tall windows and a slate roof. The sky is clear with a slight gradient, creating a calm and final atmosphere.",
+      "description": "Wide shot of the building's upper exterior. The silhouette of a small winged statue is perched on the peak of the roof. Dialogue(Character[2]): 'I guess that's all for this game.' The narrator in the background officially concludes the event. Dialogue(Character[6]): 'Game, set, match.'"
+    }
+  ]
+}
