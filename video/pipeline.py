@@ -1,0 +1,454 @@
+import os
+import sys
+import json
+import time
+import shutil
+import base64
+import requests
+import re
+import subprocess
+from datetime import datetime
+import dashscope
+from google import genai 
+
+# ======================
+# SYSTEM PROMPTS
+# ======================
+WAN_SYSTEM_PROMPT = """1. Interpret the 'Script' JSON to generate a consistent video.
+2. Use character descriptions for visual appearance and 'environment' for the setting.
+3. Execute the actions described in 'clips' with natural motion and cinematic 1k quality.
+4. Maintain visual continuity across the entire duration.
+5. Avoid abrupt cuts; use smooth camera movements and transitions.
+6. Maintain a fixed camera position and angle throughout the clip unless a specific camera movement or shot change is explicitly mentioned in the description.
+7. No dialogue boxes or speech bubbles in any storyboard panels. Sound effects (onomatopoeia) are allowed, but no captions, subtitles, or narrative text.
+8. Don't add any elements that are not described in the 'Script' JSON. Strictly adhere to the provided character descriptions and environment settings without introducing new objects, characters, or backgrounds that are not mentioned in the script.
+9. Ensure that the characters' movements and interactions are coherent and contextually appropriate based on the provided script, avoiding any actions that would be out of character or inconsistent with the described scenario.
+"""
+
+# ======================
+# CONFIG
+# ======================
+DASHSCOPE_API_KEY = ""
+GEMINI_API_KEY = ""
+IMGBB_API_KEY = ""
+
+MODEL_NAME = "wan2.7-i2v"
+VIDEO_DURATION = 3
+INPUT_JSON_PATH = "best.json"  # 讀取完整劇本
+BASE_OUTPUT_DIR = "pipeline_generations"
+PANEL_COUNT = 6 # 設定處理的 panel 數量
+
+AUTO_RESUME = True  # 自動尋找最新的 run_ 資料夾接續執行
+
+dashscope.api_key = DASHSCOPE_API_KEY
+
+# ======================
+# SAVE TOOL
+# ======================
+def save_file(content, folder, filename, is_json=False):
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, filename)
+    mode = "w" if not isinstance(content, bytes) else "wb"
+    encoding = None if isinstance(content, bytes) else "utf-8"
+
+    with open(path, mode, encoding=encoding) as f:
+        if is_json:
+            json.dump(content, f, indent=4, ensure_ascii=False)
+        else:
+            f.write(content)
+    return path
+
+# ======================
+# IMGBB UPLOAD
+# ======================
+def upload_image_to_imgbb(image_path):
+    url = "https://api.imgbb.com/1/upload"
+    with open(image_path, "rb") as f:
+        img_bytes = f.read()
+
+    payload = {
+        "key": IMGBB_API_KEY,
+        "image": base64.b64encode(img_bytes)
+    }
+    res = requests.post(url, data=payload)
+    data = res.json()
+
+    if not data.get("success"):
+        raise Exception(f"Upload failed: {data}")
+
+    return data["data"]["url"]
+
+# ======================
+# JSON FILTERING
+# ======================
+def get_panel_data(full_json, clip_index):
+    clip = next((c for c in full_json.get("clips", []) if c["id"] == clip_index), None)
+    if not clip:
+        raise ValueError(f"Clip with id {clip_index} not found in JSON.")
+    
+    desc = clip.get("description", "")
+    char_ids = set([int(x) for x in re.findall(r"Character\[(\d+)\]", desc)])
+    filtered_chars = [c for c in full_json.get("characters", []) if c["id"] in char_ids]
+    
+    return {
+        "characters": filtered_chars,
+        "clip": clip
+    }
+
+# ======================
+# WAN API
+# ======================
+def submit_wan(prompt, image_url):
+    url = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
+    headers = {
+        "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+        "Content-Type": "application/json",
+        "X-DashScope-Async": "enable",
+    }
+    payload = {
+        "model": MODEL_NAME,
+        "input": {
+            "prompt": prompt,
+            "media": [
+                {"type": "first_frame", "url": image_url}
+            ]
+        },
+        "parameters": {
+            "size": "1K",
+            "duration": VIDEO_DURATION,
+            "prompt_extend": True,
+            "watermark": False
+        }
+    }
+    res = requests.post(url, headers=headers, json=payload)
+    return res.json()
+
+def poll_task(task_id):
+    url = f"https://dashscope-intl.aliyuncs.com/api/v1/tasks/{task_id}"
+    headers = {"Authorization": f"Bearer {DASHSCOPE_API_KEY}"}
+    
+    while True:
+        res = requests.get(url, headers=headers).json()
+        status = res["output"]["task_status"]
+        print(f"        Task {task_id[-5:]}... status: {status}")
+        if status == "SUCCEEDED":
+            return res["output"]["video_url"]
+        if status in ["FAILED", "CANCELED"]:
+            raise Exception(f"Task {task_id} failed: {res}")
+        time.sleep(15)
+
+# ======================
+# GEMINI EVALUATION
+# ======================
+def upload_to_gemini(client, file_path):
+    print(f"    上傳影片至 Gemini: {os.path.basename(file_path)}...")
+    gemini_file = client.files.upload(file=file_path)
+    
+    while gemini_file.state.name == "PROCESSING":
+        print("    處理中，等待 5 秒...")
+        time.sleep(5)
+        gemini_file = client.files.get(name=gemini_file.name)
+        
+    if gemini_file.state.name == "FAILED":
+        raise Exception(f"Gemini File processing failed for {file_path}")
+        
+    return gemini_file
+
+def evaluate_videos(client, user_prompt, video_a_path, video_b_path, prev_video_path=None):
+    is_first = (prev_video_path is None)
+    file_a = upload_to_gemini(client, video_a_path)
+    file_b = upload_to_gemini(client, video_b_path)
+    contents = []
+    
+    if is_first:
+        eval_prompt = f"""You are a very critical and mindful expert video evaluator tasked with comparing two animated videos, A and B, to determine which more accurately and effectively addresses the User Prompt:
+
+User Prompt:
+{user_prompt}
+
+Your task is to mindfully and thoroughly compare the two videos, reasoning step-by-step.
+**Important Constraints**:
+- The winning scene must better adhere to the User Prompt.
+- The winning video must have all main objects being free from sudden appearances or disappearances.
+- The winning video must be free from too many unnecessary scene transitions.
+- The winning video must have characters’ movements free from unnaturally fast or slow speeds.
+
+For each criterion below, assign a score of 1 (A wins), 0 (B wins), or 0.5 (TIE). Justify your score with 150-200 words per criterion.
+- Visual Realism (Weight: 0.35): Which video has fewer non-realistic elements (e.g., distorted faces, impossible physics, sudden object appearances or disappearances, AI artifacts except watermark)? (If both are equally realistic and well-presented, mark TIE.)
+- Physical Commonsense (Weight: 0.3): Which video’s character actions, environmental setting, events, movements, and dialogue (if any) are more internally logical and plausible given the scene description? (If both are equally logical, mark TIE.)
+- Video-Prompt Alignment (Weight: 0.35): Which video more accurately matches the User Prompt in terms of visuals, actions, and constraints?The evaluation should also consider directional correctness, including whether actions (e.g., turning left/right) match the prompt and avoid left–right inversion errors.(If both match equally, mark TIE.)
+
+Perform the Following Steps One-by-One:
+1. Criterion Evaluation:
+    - For each criterion, evaluate A vs. B based on the sub-criteria.
+    - For each criterion, assign a score: 1 (A wins), 0 (B wins), 0.5 (TIE).
+    - For each criterion, provide 150 to 200 words explanation, citing specific evidence
+2. Weighted Score Calculation:
+    - Apply guideline penalties: subtract 0.5 from s_A or s_B if violations were found.
+    - Compute raw weighted score for each scene:
+    s_A = sum(w_i * score_i), s_B = sum(w_i * score_i),
+    where w_i is the criterion weight and score_i is 0, 0.5, or 1.
+3. Final Decision:
+    - If the absolute difference |s_A - s_B| is less than 0.05, output COMPARABLE.
+    - Otherwise, output A_BETTER if s_A > s_B, or B_BETTER if s_B > s_A.
+4. Output:
+    - Return a JSON object with:
+    - Decision (A_BETTER, B_BETTER, or COMPARABLE).
+    - Final averaged weighted scores for Scene A and Scene B.
+    ### Note: Be fair in your judgements. Avoid bias towards any scene. Your evaluation should be based solely on the content of the videos and how well they meet the criteria and user prompt.
+
+Output strictly as JSON block:
+```json
+{{
+"Reasoning_VisualRealism": "<150-200 words explanation here>",
+"Reasoning_PhysicalCommonsense": "<150-200 words explanation here>",
+"Reasoning_VideoPromptAlignment": "<150-200 words explanation here>",
+"Decision": "<A_BETTER | B_BETTER | COMPARABLE>",
+"WeightedScoreA": <float>,
+"WeightedScoreB": <float>
+}}
+```
+"""
+        contents = ["Video A:", file_a, "Video B:", file_b, eval_prompt]
+    else:
+        file_prev = upload_to_gemini(client, prev_video_path)
+        eval_prompt = f"""You are a very critical and mindful expert video evaluator tasked with comparing two animated videos, A and B, to determine which more accurately, effectively addresses the User Prompt, and be continuous and smooth from the first provided video:
+
+User Prompt:
+{user_prompt}
+
+Your task is to mindfully and thoroughly compare the two videos, reasoning step-by-step.
+**Important Constraints**:
+- The winning scene must better adhere to the User Prompt.
+- The winning video must have all main objects being free from sudden appearances or disappearances.
+- The winning video must be coherent to the first provided animation video.
+- The winning video must be free from too many unnecessary scene transitions.
+- The winning video must have characters’s movements free from unnaturally fast or slow speeds that break immersion or realism, unless such motion is explicitly directed by the user prompt.
+
+For each criterion below, assign a score of 1 (A wins), 0 (B wins), or 0.5 (TIE). Justify your score with 150-200 words per criterion. Your justification must reference observations from the scenes.
+Avoid general, vague, or abstract reasoning. Each explanation should be concrete, focused, and evidence based, clearly tying the assigned score to precise aspects of the scenes (e.g.,dialogue flow, emotional clarity, pacing, visual cues, character motivation).
+
+- Visual Realism (Weight: 0.2): Which video has fewer non-realistic elements (e.g., distorted faces, impossible physics, sudden object appearances or disappearances, AI artifacts except watermark)? (If both are equally realistic and well-presented, mark TIE.)
+- Physical Commonsense (Weight: 0.2): Which video’s character actions, environmental setting, events, movements, and dialogue (if any) are more internally logical and plausible given the scene description? (If both are equally logical, mark TIE.)
+- Video-Prompt Alignment (Weight: 0.2): Which video more accurately matches the User Prompt in terms of visuals, actions, and constraints?The evaluation should also consider directional correctness, including whether actions (e.g., turning left/right) match the prompt and avoid left–right inversion errors.(If both match equally, mark TIE.)
+- Coherency (Weight: 0.4): Which video is more coherent to the first provided video in terms of character’s appearance and style?(If both match equally, mark TIE.)
+
+Perform the Following Steps One-by-One:
+1. Criterion Evaluation:
+    - For each criterion, evaluate A vs. B based on the sub-criteria.
+    - For each criterion, assign a score: 1 (A wins), 0 (B wins), 0.5 (TIE).
+    - For each criterion, provide 150 to 200 words explanation, citing specific evidence
+2. Weighted Score Calculation:
+    - Apply guideline penalties: subtract 0.5 from s_A or s_B if violations were found.
+    - Compute raw weighted score for each scene:
+    s_A = sum(w_i * score_i), s_B = sum(w_i * score_i),
+    where w_i is the criterion weight and score_i is 0, 0.5, or 1.
+3. Final Decision:
+    - If the absolute difference |s_A - s_B| is less than 0.05, output COMPARABLE.
+    - Otherwise, output A_BETTER if s_A > s_B, or B_BETTER if s_B > s_A.
+4. Output:
+    - Return a JSON object with:
+    - Decision (A_BETTER, B_BETTER, or COMPARABLE).
+    - Final averaged weighted scores for Scene A and Scene B.
+    ### Note: Be fair in your judgements. Avoid bias towards any scene. Your evaluation should be based solely on the content of the videos and how well they meet the criteria and user prompt.
+
+Output strictly as JSON block:
+```json
+{{
+"Reasoning_VisualRealism": "<150-200 words explanation here>",
+"Reasoning_PhysicalCommonsense": "<150-200 words explanation here>",
+"Reasoning_VideoPromptAlignment": "<150-200 words explanation here>",
+"Reasoning_Coherency": "<150-200 words explanation here>",
+"Decision": "<A_BETTER | B_BETTER | COMPARABLE>",
+"WeightedScoreA": <float>,
+"WeightedScoreB": <float>
+}}
+```
+"""
+        contents = ["Reference Previous Video:", file_prev, "Video A:", file_a, "Video B:", file_b, eval_prompt]
+
+    print("    正在請求 Gemini 進行影片分析...")
+    resp = client.models.generate_content(
+        model="gemini-3.1-pro-preview",
+        contents=contents
+    )
+
+    # 清理資源
+    client.files.delete(name=file_a.name)
+    client.files.delete(name=file_b.name)
+    if not is_first:
+        client.files.delete(name=file_prev.name)
+        
+    return resp.text.strip(), eval_prompt
+
+def extract_json_from_response(text):
+    match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except:
+            pass
+    
+    start = text.find('{')
+    end = text.rfind('}')
+    if start != -1 and end != -1:
+        try:
+            return json.loads(text[start:end+1])
+        except:
+            pass
+            
+    return json.loads(text)
+
+# ======================
+# MAIN PIPELINE
+# ======================
+if __name__ == "__main__":
+    print("start:", datetime.now())
+    os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
+
+    run_dir = None
+    if AUTO_RESUME:
+        runs = sorted([d for d in os.listdir(BASE_OUTPUT_DIR) if d.startswith("run_")])
+        if runs:
+            run_dir = os.path.join(BASE_OUTPUT_DIR, runs[-1])
+            print(f"🔄 [中斷回復] 偵測到過去的任務目錄，接續執行: {run_dir}")
+            
+    if not run_dir:
+        run_dir = os.path.join(BASE_OUTPUT_DIR, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        os.makedirs(run_dir, exist_ok=True)
+        print(f"🆕 建立新任務目錄: {run_dir}")
+
+    with open(INPUT_JSON_PATH, "r", encoding="utf-8") as f:
+        full_json = json.load(f)
+        
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+    best_videos = []
+    prev_best_video_path = None
+
+    for i in range(1, PANEL_COUNT + 1):
+        print(f"\n======================================")
+        print(f"🎬 處理 Panel {i}")
+        print(f"======================================")
+        
+        panel_dir = os.path.join(run_dir, f"panel_{i}")
+        os.makedirs(panel_dir, exist_ok=True)
+        
+        final_panel_video_path = os.path.join(panel_dir, f"best_panel_{i}.mp4")
+        
+        if os.path.exists(final_panel_video_path):
+            print(f"    ⏭️ [中斷回復] 發現已完成的最終影片 best_panel_{i}.mp4，跳過此 Panel。")
+            best_videos.append(final_panel_video_path)
+            prev_best_video_path = final_panel_video_path
+            continue
+
+        local_img_path = f"panel{i}.png"
+        if not os.path.exists(local_img_path):
+            print(f"❌ 找不到圖片 {local_img_path}，略過。")
+            continue
+            
+        shutil.copy(local_img_path, os.path.join(panel_dir, "input.png"))
+        
+        panel_data = get_panel_data(full_json, i)
+        wan_prompt = f"Rule:\n{WAN_SYSTEM_PROMPT.strip()}\n\nScript:\n{json.dumps(panel_data, ensure_ascii=False)}"
+        save_file(wan_prompt, panel_dir, "wan_prompt.txt")
+        save_file(panel_data, panel_dir, "filtered_script.json", True)
+        
+        # 使用 candidate 命名來存 Wan 的原始影片
+        video_1_path = os.path.join(panel_dir, "candidate_1.mp4")
+        video_2_path = os.path.join(panel_dir, "candidate_2.mp4")
+        tasks_info_path = os.path.join(panel_dir, "tasks_info.json")
+        
+        if os.path.exists(video_1_path) and os.path.exists(video_2_path):
+            print("    ⏭️ [中斷回復] 發現 candidate_1 與 candidate_2 已存在，跳過 Wan 影片生成。")
+        else:
+            if os.path.exists(tasks_info_path):
+                print("    🔄 [中斷回復] 發現已提交的 tasks_info.json，載入 task_id 恢復 Polling...")
+                with open(tasks_info_path, "r", encoding="utf-8") as f:
+                    tasks_info = json.load(f)
+                task_a_id = tasks_info["task_A"]["output"]["task_id"]
+                task_b_id = tasks_info["task_B"]["output"]["task_id"]
+            else:
+                print("    上傳圖片至 ImgBB...")
+                image_url = upload_image_to_imgbb(local_img_path)
+                
+                print("    🚀 提交任務 A 與 B 至 Wan...")
+                task_a_res = submit_wan(wan_prompt, image_url)
+                task_b_res = submit_wan(wan_prompt, image_url)
+                
+                task_a_id = task_a_res["output"]["task_id"]
+                task_b_id = task_b_res["output"]["task_id"]
+                
+                save_file({"task_A": task_a_res, "task_B": task_b_res}, panel_dir, "tasks_info.json", True)
+                print(f"    任務提交成功: Task A [{task_a_id}], Task B [{task_b_id}]")
+
+            print("    等待影片生成...")
+            if not os.path.exists(video_1_path):
+                url_a = poll_task(task_a_id)
+                save_file(requests.get(url_a).content, panel_dir, "candidate_1.mp4")
+            if not os.path.exists(video_2_path):
+                url_b = poll_task(task_b_id)
+                save_file(requests.get(url_b).content, panel_dir, "candidate_2.mp4")
+            print("    ✅ 雙軌影片下載完成。")
+        
+        # --- ⭐ 關鍵改動：評估前將候選影片複製並重新命名為 video_A / video_B ---
+        eval_vid_a_path = os.path.join(panel_dir, "video_A.mp4")
+        eval_vid_b_path = os.path.join(panel_dir, "video_B.mp4")
+        shutil.copy(video_1_path, eval_vid_a_path)
+        shutil.copy(video_2_path, eval_vid_b_path)
+
+        print("    🤖 呼叫 Gemini 進行專業評測...")
+        try:
+            # 送入的是命名為 video_A 與 video_B 的檔案
+            eval_text, eval_prompt_used = evaluate_videos(
+                gemini_client, 
+                wan_prompt, 
+                eval_vid_a_path, 
+                eval_vid_b_path, 
+                prev_best_video_path
+            )
+            
+            save_file(eval_prompt_used, panel_dir, "gemini_eval_prompt.txt")
+            save_file(eval_text, panel_dir, "gemini_eval_response.txt")
+            
+            eval_result = extract_json_from_response(eval_text)
+            decision = eval_result.get("Decision", "A_BETTER")
+        except Exception as e:
+            print(f"    ⚠️ 評估過程發生錯誤，預設選擇 A。錯誤: {e}")
+            decision = "A_BETTER"
+            
+        print(f"    🏆 評估結果: {decision}")
+        
+        # 6. 選定最佳影片並記錄 (這裡從 candidate 複製過去，確保來源正確)
+        best_video_for_panel = video_2_path if decision == "B_BETTER" else video_1_path
+        shutil.copy(best_video_for_panel, final_panel_video_path)
+        
+        best_videos.append(final_panel_video_path)
+        prev_best_video_path = final_panel_video_path
+
+        # --- 清理暫存檔 ---
+        if os.path.exists(eval_vid_a_path): os.remove(eval_vid_a_path)
+        if os.path.exists(eval_vid_b_path): os.remove(eval_vid_b_path)
+        
+    print("\n======================================")
+    print("🎥 開始串接所有最佳片段...")
+    list_file_path = os.path.join(run_dir, "concat_list.txt")
+    with open(list_file_path, "w", encoding="utf-8") as f:
+        for vid in best_videos:
+            f.write(f"file '{os.path.abspath(vid).replace('\\\\', '/')}'\n")
+            
+    final_output_path = os.path.join(run_dir, "final_story.mp4")
+
+    ffmpeg_cmd = [
+        "ffmpeg", "-y", "-f", "concat", "-safe", "0", 
+        "-i", list_file_path, 
+        "-c", "copy", final_output_path
+    ]
+
+    try:
+        subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"🎉 影片串接完成！最終成果: {final_output_path}")
+    except Exception as e:
+        print(f"❌ 影片串接失敗，請確認是否已安裝 ffmpeg。錯誤: {e}")
+
+    print("DONE ->", run_dir)
