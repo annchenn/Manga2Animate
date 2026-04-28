@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.log import console, section, success
+from src.log import init_log_file, rule, section, success
 
 
 def parse_args():
@@ -22,6 +22,8 @@ def parse_args():
 
 args = parse_args()
 os.environ["TARGET"] = args.target
+
+init_log_file(Path("results") / args.target / "log.txt")
 
 # Import modules AFTER setting TARGET so module-level paths resolve correctly.
 import src.magi as magi
@@ -56,7 +58,7 @@ def run_iteration(iteration: int, mode: str):
 
 
 def main():
-    console.rule(
+    rule(
         f"[bold cyan]Manga → Storyboard pipeline  ·  "
         f"target=[white]{args.target}[/]  ·  iterations=[white]{NUM_ITERATIONS}[/]"
     )
