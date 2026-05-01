@@ -53,6 +53,7 @@ python src/run_all.py -t <target> -n 3
 ```
 
 All input files come from `target/<target>/` and all results land in `results/<target>/`.
+
 ---
 
 ## Output Layout
