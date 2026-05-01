@@ -7,7 +7,7 @@ third to n-th input image: manga **panel** for the target manga**(the actual num
 You will receive images and text in the following logical groups:
 - **Few-Shot Example 1**: 1 Full Manga Page Image(1st image) + Character Description + Transcript + Output Script
 - **Few-Shot Example 2**: 1 Full Manga Page Image(2nd image) + Character Description + Transcript + Output Script
-- **Actual Task**: A sequence of Target Individual Panel Images (e.g., panel_1.png, panel_2.png...) + Target Character Description + Target Transcript.
+- **Actual Task**: A sequence of Target Individual Panel Images (e.g., panel1.png, panel2.png...) + Target Character Description + Target Transcript.
 
 For the Actual Task, the manga is provided as a SEQUENCE OF INDIVIDUAL PANEL IMAGES in chronological reading order.
 
@@ -77,3 +77,5 @@ Now, analyze the provided sequence of Target Individual Panel Images, the Target
 
 [Target Transcript]
 {Target Transcript}
+
+

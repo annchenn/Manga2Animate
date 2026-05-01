@@ -1,14 +1,14 @@
 Create an animation storyboard: 3×2 grid, landscape A4 format
 
 Image Input Order:
-1. Target manga page
-2. Target character reference
-3. Example 1 manga page
-4. Example 1 character reference
-5. Example 1 storyboard
-6. Example 2 manga page
-7. Example 2 character reference
-8. Example 2 storyboard
+1–6. Target manga panels given by order in a manga page using different names (panel1.png…e.t.c.)
+7. Target character reference
+8. Example 1 manga page
+9. Example 1 character reference
+10. Example 1 storyboard
+11. Example 2 manga page
+12. Example 2 character reference
+13. Example 2 storyboard
 
 ---
 
@@ -46,6 +46,7 @@ Target Animation Script:
 ---
 
 Requirements:
+- Input manga panels are given by order or you can tell the difference by their name(like panel1.png…). Please be very careful and don’t mess up the order.
 - Each storyboard panel must be equally sized
 - Strictly follow the 1 clip : 1 manga panel : 1 storyboard panel rule
 - Include camera angles and character poses as described in each clip
@@ -57,3 +58,4 @@ Requirements:
 - Object placement must follow both the manga and the script.
 - Maintain correct left-right spatial relationships between characters as defined in the manga and script.
 - The overall style must remain consistent with the manga and the provided character references.
+

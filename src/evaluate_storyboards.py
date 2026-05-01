@@ -25,6 +25,7 @@ TIE_ORDER_FILE = PROMPT_DIR / "storyboard_tie_order.txt"
 
 MODEL = os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview")
 NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
+NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 CRITERIA_BY_NUMBER = {
@@ -43,7 +44,7 @@ CRITERIA_BY_NUMBER = {
     "13": "Left/Right Feature Consistency",
 }
 NAME_TO_NUMBER = {v: k for k, v in CRITERIA_BY_NUMBER.items()}
-INDEPENDENT_CRITERIA = {"3", "4"}
+INDEPENDENT_CRITERIA = {"3", "4", "5", "6", "12"}
 
 client = genai.Client(
     vertexai=True,
@@ -141,9 +142,9 @@ def compare_same_script(sb_a: Path, sb_b: Path, script_path: Path, out_path: Pat
     script_text = script_path.read_text(encoding="utf-8")
     prompt = template.replace("{Script JSON}", script_text)
 
-    manga = find_image(TARGET_DIR, "manga_page")
+    panels = [TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)]
     ref = find_image(TARGET_DIR, "ref")
-    result = call_reviewer(prompt, [manga, ref, sb_a, sb_b], "same_script reviewer")
+    result = call_reviewer(prompt, [*panels, ref, sb_a, sb_b], "same_script reviewer")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     success(f"Saved {out_path.name}")
@@ -159,9 +160,9 @@ def compare_different_script(
     prompt = template.replace("{Script 1 JSON}", script_a.read_text(encoding="utf-8"))
     prompt = prompt.replace("{Script 2 JSON}", script_b.read_text(encoding="utf-8"))
 
-    manga = find_image(TARGET_DIR, "manga_page")
+    panels = [TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)]
     ref = find_image(TARGET_DIR, "ref")
-    result = call_reviewer(prompt, [manga, ref, sb_a, sb_b], "different_script reviewer")
+    result = call_reviewer(prompt, [*panels, ref, sb_a, sb_b], "different_script reviewer")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     success(f"Saved {out_path.name}")
@@ -203,8 +204,8 @@ def per_criterion_wins(result: dict, side: str) -> dict[str, int]:
     """For one comparison, return {criterion_number: 0|1} for the given side ('A' or 'B')."""
     out = {num: 0 for num in CRITERIA_BY_NUMBER}
     criteria = result.get("criteria_results", {})
-    for num in CRITERIA_BY_NUMBER:
-        crit = criteria.get(num, {})
+    for num, name in CRITERIA_BY_NUMBER.items():
+        crit = criteria.get(name, {})
         if num in INDEPENDENT_CRITERIA:
             if is_pass(crit.get(side)):
                 out[num] = 1

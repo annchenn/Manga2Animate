@@ -78,9 +78,10 @@ def evaluate_character(all_scripts: list[dict]) -> str:
         json.dumps(characters_payload, ensure_ascii=False, indent=2),
     )
 
-    manga_path = find_image(TARGET_DIR, "manga_page")
-    manga_mime = "image/jpeg" if manga_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
-    panel_part = types.Part.from_bytes(data=manga_path.read_bytes(), mime_type=manga_mime)
+    panel_parts = []
+    for clip_id in range(1, NUM_CLIPS + 1):
+        panel_path = PANELS_DIR / f"panel{clip_id}.png"
+        panel_parts.append(types.Part.from_bytes(data=panel_path.read_bytes(), mime_type="image/png"))
 
     ref_path = find_image(TARGET_DIR, "ref")
     ref_mime = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
@@ -89,7 +90,7 @@ def evaluate_character(all_scripts: list[dict]) -> str:
     return with_retry(
         lambda: client.models.generate_content(
             model=MODEL,
-            contents=[panel_part, ref_part, filled_prompt],
+            contents=[*panel_parts, ref_part, filled_prompt],
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
             ),
@@ -102,7 +103,7 @@ def evaluate_character(all_scripts: list[dict]) -> str:
 
 def evaluate_clip(clip_id: int, all_scripts: list[dict]) -> str:
     template = CLIP_PROMPT_FILE.read_text(encoding="utf-8")
-    panel_path = PANELS_DIR / f"{clip_id}.png"
+    panel_path = PANELS_DIR / f"panel{clip_id}.png"
 
     payload = {
         "Character Description": all_scripts[0].get("characters", []),

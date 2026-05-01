@@ -120,7 +120,7 @@ def generate_script(mode: str, iteration: int) -> str:
         image_paths.append(find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"))
         image_paths.append(find_image(FEW_SHOT_DIR, f"manga_page{EXP2}"))
     for clip_id in range(1, NUM_CLIPS + 1):
-        image_paths.append(PANELS_DIR / f"{clip_id}.png")
+        image_paths.append(PANELS_DIR / f"panel{clip_id}.png")
 
     parts = []
     for img_path in image_paths:

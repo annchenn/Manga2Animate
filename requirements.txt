@@ -1,0 +1,12 @@
+google-genai==1.70.0
+python-dotenv==1.2.2
+Pillow==12.2.0
+rich==15.0.0
+transformers==4.38.0
+torch==2.11.0
+torchvision==0.26.0
+numpy==2.4.4
+einops==0.8.2
+shapely==2.1.2
+matplotlib==3.10.8
+networkx==3.6.1

@@ -8,7 +8,8 @@ Your task is to compare all provided scripts against each other based on how fai
 
 Evaluation Rules:
 
-* For each criterion, you MUST choose exactly ONE winning script. Do NOT give ties.
+*First describe every clip description according to the corresponding rule, then give the final answer.
+*For each criterion, you MUST choose exactly ONE winning script. Do NOT give ties.
 * Do NOT answer Yes/No for each script. Instead, compare all provided scripts and decide which single script performs best for that criterion.
 * The winning script receives 1 point for that criterion.
 * All other scripts receive 0 points for that criterion.
@@ -57,26 +58,44 @@ Output your entire response as a single JSON object in the following format. Do 
 
 {
   "Character Small Object Accuracy": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
   "Character Emotion and Expression": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
   "Background Accuracy": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
   "Object Placement and Orientation": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
   "Character Body Orientation and Spatial Relationship": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
   "Dialogue Speaker Assignment": {
+    "description_for_script1": "...",
+    "description_for_script2": "...",
+    "description_for_scriptN": "...",
     "winner": "Script X",
     "explanation": "Explain why this script is better than all other provided scripts specifically for this criterion."
   },
@@ -94,3 +113,4 @@ Output your entire response as a single JSON object in the following format. Do 
     "...": "..."
   }
 }
+

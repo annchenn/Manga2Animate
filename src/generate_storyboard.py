@@ -20,6 +20,7 @@ PROMPT_FILE = BASE_DIR / "prompts" / "create_storyboard.txt"
 
 MODEL = os.environ.get("IMAGE_MODEL", "gemini-3-pro-image-preview")
 NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
+NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 EXP1 = int(os.environ.get("EXP1", "0"))
 EXP2 = int(os.environ.get("EXP2", "3"))
 
@@ -65,7 +66,7 @@ def generate_one(best_script: dict, iteration: int, sb_index: int):
     prompt_text = build_storyboard_prompt(best_script)
 
     image_paths = [
-        find_image(TARGET_DIR, "manga_page"),
+        *(TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)),
         find_image(TARGET_DIR, "ref"),
         find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"),
         find_image(FEW_SHOT_DIR, f"ref{EXP1}"),

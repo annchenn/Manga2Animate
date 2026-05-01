@@ -2,7 +2,7 @@ You are an expert Animation Script Reviewer and Editor. Your task is to produce 
 
 ### Input Structure Context (CRITICAL)
 You will receive the following inputs:
-- **Actual Task**: A sequence of Target Individual Panel Images + A previously generated Script + Three types of feedback:
+- **Actual Task**: A sequence of Target Individual Panel Images(e.g., panel1.png, panel2.png...) + A previously generated Script + Three types of feedback:
   1. **Script Reviewer Feedback**: Direct feedback on the script itself (e.g., character descriptions, dialogue accuracy, spatial descriptions).
   2. **Storyboard Reviewer Feedback (Reviewer A)**: Feedback from the first reviewer on the storyboard generated from this script.
   3. **Storyboard Reviewer Feedback (Reviewer B)**: Feedback from the second reviewer on the same storyboard generated from this script.
@@ -60,3 +60,4 @@ Now, analyze the provided sequence of Target Individual Panel Images, the previo
 
 [Storyboard Reviewer Feedback (Reviewer B)]
 {Storyboard Reviewer Feedback (Reviewer B)}
+
