@@ -53,22 +53,6 @@ python src/run_all.py -t <target> -n 3
 ```
 
 All input files come from `target/<target>/` and all results land in `results/<target>/`.
-
-target structure:
-
-```
-target/<target>/
-    manga_panels/
-        panel1.png
-        panel2.png
-        panel3.png
-        panel4.png
-        panel5.png
-        panel6.png
-    manga_page.png
-    ref.png
-```
-
 ---
 
 ## Output Layout
