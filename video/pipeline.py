@@ -10,6 +10,7 @@ import subprocess
 from datetime import datetime
 import dashscope
 from google import genai 
+from PIL import Image 
 
 # ======================
 # SYSTEM PROMPTS
@@ -38,7 +39,7 @@ INPUT_JSON_PATH = "best.json"  # 讀取完整劇本
 BASE_OUTPUT_DIR = "pipeline_generations"
 PANEL_COUNT = 6 # 設定處理的 panel 數量
 
-AUTO_RESUME = True  # 自動尋找最新的 run_ 資料夾接續執行
+AUTO_RESUME = False  # 自動尋找最新的 run_ 資料夾接續執行
 
 dashscope.api_key = DASHSCOPE_API_KEY
 
@@ -96,9 +97,40 @@ def get_panel_data(full_json, clip_index):
     }
 
 # ======================
+# ⭐ 新增：DYNAMIC DURATION CALCULATION (計算動態整數秒數)
+# ======================
+def calculate_optimal_duration_int(image_path, clip_data):
+    base_time = 2.0 
+    
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+            area = width * height
+            standard_area = 62500.0 # 預設 250x250 基準
+            area_ratio = area / standard_area
+            if(area_ratio < 1.0):
+                visual_bonus = 0  # 小於基準圖，適度減少加成
+            else:   
+                visual_bonus = min(3.0, area_ratio * 1.0)
+    except Exception:
+        visual_bonus = 0.5
+
+    description = clip_data.get("description", "")
+    dialogues = re.findall(r"Dialogue\([^)]+\):\s*'([^']+)'", description)
+    total_words = sum(len(d.split()) for d in dialogues)
+    text_bonus = total_words / 10.0
+
+    total_duration = base_time + visual_bonus + text_bonus
+    # 限制影片長度在 2~5 秒之間，並四捨五入取整數給 WAN API
+    optimal_duration_int = max(2, min(5, int(round(total_duration))))
+    
+    print(f"        ⏱️ [時長計算] 基礎:{base_time}s + 視覺:{visual_bonus:.2f}s + 對話({total_words}字):{text_bonus:.2f}s -> 動態指派: {optimal_duration_int} 秒")
+    return optimal_duration_int
+
+# ======================
 # WAN API
 # ======================
-def submit_wan(prompt, image_url):
+def submit_wan(prompt, image_url, duration=3):
     url = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
     headers = {
         "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
@@ -115,7 +147,7 @@ def submit_wan(prompt, image_url):
         },
         "parameters": {
             "size": "1K",
-            "duration": VIDEO_DURATION,
+            "duration": duration,
             "prompt_extend": True,
             "watermark": False
         }
@@ -350,6 +382,9 @@ if __name__ == "__main__":
         shutil.copy(local_img_path, os.path.join(panel_dir, "input.png"))
         
         panel_data = get_panel_data(full_json, i)
+        manga_img_path = f"manga_panel{i}.png"
+        optimal_duration = calculate_optimal_duration_int(manga_img_path, panel_data["clip"])
+        
         wan_prompt = f"Rule:\n{WAN_SYSTEM_PROMPT.strip()}\n\nScript:\n{json.dumps(panel_data, ensure_ascii=False)}"
         save_file(wan_prompt, panel_dir, "wan_prompt.txt")
         save_file(panel_data, panel_dir, "filtered_script.json", True)
@@ -373,8 +408,8 @@ if __name__ == "__main__":
                 image_url = upload_image_to_imgbb(local_img_path)
                 
                 print("    🚀 提交任務 A 與 B 至 Wan...")
-                task_a_res = submit_wan(wan_prompt, image_url)
-                task_b_res = submit_wan(wan_prompt, image_url)
+                task_a_res = submit_wan(wan_prompt, image_url, duration=optimal_duration)
+                task_b_res = submit_wan(wan_prompt, image_url, duration=optimal_duration)
                 
                 task_a_id = task_a_res["output"]["task_id"]
                 task_b_id = task_b_res["output"]["task_id"]
