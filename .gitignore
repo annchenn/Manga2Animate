@@ -6,3 +6,4 @@ results/
 venv/
 .env
 target/
+video/pipeline_generations/
