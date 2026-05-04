@@ -1,26 +1,29 @@
+# Comic2Animate Video Pipeline
+
+A storyboard-to-animation pipeline that generates animated video clips from manually prepared storyboard panels, evaluates multiple candidates using Gemini, and concatenates the best clips into a final animated story.
+
+This README is for the `Manga2Animate/video/` folder.
+
 ---
-
-# Comic2Animate Pipeline
-
-A fully automated storyboard-to-animation pipeline that generates animated video clips from storyboard panels, evaluates multiple candidates using Gemini, and concatenates the best clips into a final animated story.
 
 ## Features
 
-* Generate animation clips from storyboard images (`panel{i}.png`) using Wan I2V.
-* **Intelligent Dynamic Duration (2-5 seconds):** Automatically calculates the optimal video length based on the original manga panel size (`manga_panel{i}.png`) and the word count of the dialogue.
+* Generate animation clips from storyboard panel images using Wan I2V.
+* Use manually prepared storyboard panels as the first frame for video generation.
+* Calculate dynamic video duration based on the original manga panel size and dialogue word count.
 * Automatically extract related characters from the script JSON.
-* Generate two candidate videos for each panel to ensure diversity.
-* Use Gemini 3.1 Pro to evaluate and select the better animation.
+* Generate two candidate videos for each panel.
+* Use Gemini to evaluate and select the better animation.
 * Maintain temporal coherence between consecutive clips.
 * Optional auto-resume for interrupted runs.
-* Automatically concatenate all selected clips into a final video using FFmpeg.
+* Concatenate all selected clips into a final video using FFmpeg.
 
 ---
 
 ## Requirements
 
 * Python 3.10+
-* **FFmpeg** installed and added to your system's PATH.
+* FFmpeg installed and available in your system PATH.
 
 Python packages:
 
@@ -30,59 +33,93 @@ pip install requests dashscope google-genai Pillow
 
 ---
 
-## Project Structure
+## Folder Structure
+
+Expected structure from the `Manga2Animate/` project root:
 
 ```text
-project/
+Manga2Animate/
+├── results/
+│   └── {target}/
+│       ├── iter0/
+│       │   ├── bestScript.json
+│       │   └── bestStoryboard.png
+│       ├── iter1/
+│       │   ├── bestScript.json
+│       │   └── bestStoryboard.png
+│       └── ...
 │
-├── pipeline.py
-├── best.json
-├── panel1.png              # Used as the first frame for video generation
-├── manga_panel1.png        # Used to calculate dynamic duration based on area
-├── panel2.png
-├── manga_panel2.png
-├── ...
+├── target/
+│   └── {target}/
+│       ├── manga_page.png
+│       ├── ref.png
+│       ├── manga_panels/
+│       │   ├── panel1.png
+│       │   ├── panel2.png
+│       │   └── ...
+│       └── storyboard_panels/
+│           ├── panel1.png
+│           ├── panel2.png
+│           └── ...
 │
-└── pipeline_generations/
-    └── run_xxx/
-        ├── panel_1/
-        ├── panel_2/
-        ├── ...
-        └── final_story.mp4
+└── video/
+    ├── pipeline.py
+    ├── README.md
+    ├── requirements.txt
+    └── pipeline_generations/
 ```
 
 ---
 
 ## Input Files
 
-### 1. Generation Base Images
-The cleaned or processed images used as the first frame for Wan I2V generation:
+The pipeline uses a target argument, such as:
+
 ```text
-panel1.png
-panel2.png
-...
+death_notebook
 ```
 
-### 2. Original Manga Panels (For Timing)
-The pipeline needs the original manga panel crops to accurately calculate the visual importance (area) of the scene.
+The target name should match folders under both:
+
 ```text
-manga_panel1.png
-manga_panel2.png
-...
+Manga2Animate/results/{target}/
+Manga2Animate/target/{target}/
 ```
 
-### 3. Script JSON
-The pipeline reads a full script JSON file (`best.json`). Example structure:
+For example:
+
+```text
+Manga2Animate/results/death_notebook/
+Manga2Animate/target/death_notebook/
+```
+
+---
+
+### 1. Script JSON
+
+The pipeline automatically loads the latest iteration script from:
+
+```text
+Manga2Animate/results/{target}/iter_max/bestScript.json
+```
+
+Example:
+
+```text
+Manga2Animate/results/death_notebook/iter1/bestScript.json
+```
+
+Expected JSON structure:
 
 ```json
 {
-  "characters":[
+  "characters": [
     {
       "id": 1,
       "description": "Teenage boy, slim build..."
     }
   ],
-  "clips":[
+  "clips": [
     {
       "id": 1,
       "description": "Character[1] walks into the room. Dialogue(Character[1]): 'Hello!'"
@@ -90,7 +127,54 @@ The pipeline reads a full script JSON file (`best.json`). Example structure:
   ]
 }
 ```
-The system automatically matches characters based on `Character[ID]` and counts dialogue words to determine the scene duration.
+
+The system automatically matches referenced characters using `Character[ID]`.
+
+---
+
+### 2. Storyboard Panels for Video Generation
+
+The first-frame images for Wan I2V should be placed manually under:
+
+```text
+Manga2Animate/target/{target}/storyboard_panels/
+```
+
+Example:
+
+```text
+Manga2Animate/target/death_notebook/storyboard_panels/panel1.png
+Manga2Animate/target/death_notebook/storyboard_panels/panel2.png
+Manga2Animate/target/death_notebook/storyboard_panels/panel3.png
+Manga2Animate/target/death_notebook/storyboard_panels/panel4.png
+Manga2Animate/target/death_notebook/storyboard_panels/panel5.png
+Manga2Animate/target/death_notebook/storyboard_panels/panel6.png
+```
+
+These are the cleaned or manually cropped storyboard panels used as the first frame for animation generation.
+
+---
+
+### 3. Original Manga Panels for Duration Estimation
+
+The original manga panel crops should be placed under:
+
+```text
+Manga2Animate/target/{target}/manga_panels/
+```
+
+Example:
+
+```text
+Manga2Animate/target/death_notebook/manga_panels/panel1.png
+Manga2Animate/target/death_notebook/manga_panels/panel2.png
+Manga2Animate/target/death_notebook/manga_panels/panel3.png
+Manga2Animate/target/death_notebook/manga_panels/panel4.png
+Manga2Animate/target/death_notebook/manga_panels/panel5.png
+Manga2Animate/target/death_notebook/manga_panels/panel6.png
+```
+
+These manga panels are used only for dynamic duration calculation.
 
 ---
 
@@ -104,63 +188,154 @@ GEMINI_API_KEY = "YOUR_GEMINI_KEY"
 IMGBB_API_KEY = "YOUR_IMGBB_KEY"
 ```
 
-Optional pipeline settings:
+Main settings:
 
 ```python
 MODEL_NAME = "wan2.7-i2v"
-INPUT_JSON_PATH = "best.json"
-BASE_OUTPUT_DIR = "pipeline_generations"
 PANEL_COUNT = 6
-AUTO_RESUME = False  # Set to True if you want to resume from the last interrupted run
 ```
+
+Input and output paths are built automatically from the target argument.
 
 ---
 
 ## How It Works
 
-### 1. Filter Script Data & Calculate Duration
-For each panel (1 to `PANEL_COUNT`):
-* Finds the corresponding clip in `best.json`.
-* Extracts referenced characters (e.g., `Character[1]`).
-* **Calculates optimal duration (2-5 seconds):** 
-  * *Visual Bonus*: Compares `manga_panel{i}.png` area to a standard 250x250 baseline.
-  * *Text Bonus*: Analyzes dialogue word count (assuming ~10 words per second).
+### 1. Load Input Data
 
-### 2. Generate Candidate Videos
-* Uploads `panel{i}.png` to ImgBB.
-* Sends two independent generation requests to Wan API using the calculated dynamic duration.
-* Polls until both `candidate_1.mp4` and `candidate_2.mp4` are successfully generated.
+For each target, the pipeline loads:
 
-### 3. Gemini Evaluation
-The pipeline renames the candidates to `video_A.mp4` and `video_B.mp4` and uploads them to Gemini 3.1 Pro. Gemini evaluates them based on:
-* **Visual Realism** (Fewer AI artifacts, logical physics)
-* **Physical Commonsense** (Logical actions and environment)
-* **Video-Prompt Alignment** (Matches user prompt constraints and directions)
-* **Coherency** (Temporal consistency with the previous panel's winning video)
+```text
+results/{target}/iter_max/bestScript.json
+target/{target}/storyboard_panels/panel{i}.png
+target/{target}/manga_panels/panel{i}.png
+```
 
-Gemini returns a strict JSON decision (`A_BETTER`, `B_BETTER`, or `COMPARABLE`).
+Example:
 
-### 4. Final Concatenation
-After all panels are processed and evaluated, the pipeline generates a `concat_list.txt` and uses FFmpeg to merge all best clips into `final_story.mp4`.
+```text
+results/death_notebook/iter1/bestScript.json
+target/death_notebook/storyboard_panels/panel1.png
+target/death_notebook/manga_panels/panel1.png
+```
+
+---
+
+### 2. Filter Script Data and Calculate Duration
+
+For each panel:
+
+* Finds the corresponding clip in `bestScript.json`.
+* Extracts referenced characters, such as `Character[1]`.
+* Calculates optimal duration between 2 and 5 seconds based on:
+  * original manga panel area
+  * dialogue word count
+
+---
+
+### 3. Generate Candidate Videos
+
+For each storyboard panel:
+
+* Uploads `storyboard_panels/panel{i}.png` to ImgBB.
+* Sends two independent generation requests to Wan I2V.
+* Downloads the results as:
+
+```text
+candidate_1.mp4
+candidate_2.mp4
+```
+
+---
+
+### 4. Gemini Evaluation
+
+The pipeline copies the candidates as:
+
+```text
+video_A.mp4
+video_B.mp4
+```
+
+Gemini evaluates them based on:
+
+* Visual Realism
+* Physical Commonsense
+* Video-Prompt Alignment
+* Coherency with the previous selected clip
+
+Gemini returns:
+
+```text
+A_BETTER
+B_BETTER
+COMPARABLE
+```
+
+The selected video is saved as:
+
+```text
+best_panel_{i}.mp4
+```
+
+---
+
+### 5. Final Concatenation
+
+After all panels are processed, the pipeline creates:
+
+```text
+concat_list.txt
+```
+
+Then FFmpeg concatenates all selected clips into:
+
+```text
+final_story.mp4
+```
 
 ---
 
 ## Running the Pipeline
 
-Ensure all required images (`panelX.png`, `manga_panelX.png`) and `best.json` are in the root directory, then run:
+From the project root:
 
 ```bash
-python pipeline.py
+python video/pipeline.py -t death_notebook
+```
+
+From inside the `video/` folder:
+
+```bash
+python pipeline.py -t death_notebook
+```
+
+Resume from the latest interrupted run:
+
+```bash
+python video/pipeline.py -t death_notebook --auto-resume
+```
+
+Set the number of panels:
+
+```bash
+python video/pipeline.py -t death_notebook --panel-count 6
 ```
 
 ---
 
 ## Output Structure
 
-Example of a successful run:
+Generated outputs are saved under:
 
 ```text
-pipeline_generations/
+Manga2Animate/video/pipeline_generations/{target}/
+```
+
+Example:
+
+```text
+Manga2Animate/video/pipeline_generations/death_notebook/
 └── run_20260504_120000/
     ├── panel_1/
     │   ├── input.png
@@ -170,11 +345,14 @@ pipeline_generations/
     │   ├── filtered_script.json
     │   ├── wan_prompt.txt
     │   ├── gemini_eval_prompt.txt
-    │   └── gemini_eval_response.txt
+    │   ├── gemini_eval_response.txt
+    │   └── tasks_info.json
     │
     ├── panel_2/
-    └── ...
-    │
+    ├── panel_3/
+    ├── panel_4/
+    ├── panel_5/
+    ├── panel_6/
     ├── concat_list.txt
     └── final_story.mp4
 ```
@@ -183,7 +361,10 @@ pipeline_generations/
 
 ## Notes
 
-* **FFmpeg** is strictly required for the final concatenation step.
-* Gemini evaluation takes time as files must be uploaded and processed in the cloud.
+* `video/pipeline_generations/` should usually be added to `.gitignore`.
+* `storyboard_panels/panel{i}.png` is used as the first frame for Wan I2V.
+* `manga_panels/panel{i}.png` is used only for duration estimation.
+* `bestScript.json` is loaded from the latest `iterX` folder under `results/{target}/`.
+* FFmpeg is required for the final concatenation step.
+* Gemini evaluation may take time because videos must be uploaded and processed.
 * Wan generation is asynchronous; the script polls Dashscope every 15 seconds.
-* If a generation or evaluation fails midway, you can set `AUTO_RESUME = True` and restart the script to continue from where it left off.

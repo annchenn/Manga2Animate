@@ -11,6 +11,8 @@ from datetime import datetime
 import dashscope
 from google import genai 
 from PIL import Image 
+import argparse
+from pathlib import Path
 
 # ======================
 # SYSTEM PROMPTS
@@ -35,11 +37,8 @@ IMGBB_API_KEY = ""
 
 MODEL_NAME = "wan2.7-i2v"
 VIDEO_DURATION = 3
-INPUT_JSON_PATH = "best.json"  # 讀取完整劇本
-BASE_OUTPUT_DIR = "pipeline_generations"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]  # Manga2Animate/
 PANEL_COUNT = 6 # 設定處理的 panel 數量
-
-AUTO_RESUME = False  # 自動尋找最新的 run_ 資料夾接續執行
 
 dashscope.api_key = DASHSCOPE_API_KEY
 
@@ -334,23 +333,198 @@ def extract_json_from_response(text):
 # ======================
 # MAIN PIPELINE
 # ======================
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-t", "--target",
+        required=True,
+        help="Target folder name, e.g. death_notebook, karakai, dangers_in_heart"
+    )
+
+    parser.add_argument(
+        "--panel-count",
+        type=int,
+        default=PANEL_COUNT,
+        help="Number of panels to process"
+    )
+
+    parser.add_argument(
+        "--auto-resume",
+        action="store_true",
+        help="Resume from latest run folder"
+    )
+
+    parser.add_argument(
+        "--storyboard-layout",
+        default="2x3",
+        help="Layout of bestStoryboard.png, default: 2x3"
+    )
+
+    return parser.parse_args()
+
+
+def parse_storyboard_layout(layout_str):
+    """
+    Example:
+    2x3 -> rows=2, cols=3
+    3x2 -> rows=3, cols=2
+    """
+    try:
+        rows, cols = layout_str.lower().split("x")
+        return int(rows), int(cols)
+    except Exception:
+        raise ValueError(f"Invalid storyboard layout: {layout_str}, expected format like 2x3")
+
+
+def find_latest_iter_dir(results_target_dir):
+    """
+    Find max iter folder under:
+    Manga2Animate/results/{target}/iter0
+    Manga2Animate/results/{target}/iter1
+    ...
+    """
+    if not results_target_dir.exists():
+        raise FileNotFoundError(f"Results target folder not found: {results_target_dir}")
+
+    candidates = []
+
+    for p in results_target_dir.iterdir():
+        if not p.is_dir():
+            continue
+
+        match = re.fullmatch(r"iter(\d+)", p.name)
+        if match:
+            candidates.append((int(match.group(1)), p))
+
+    if not candidates:
+        raise FileNotFoundError(f"No iter folder found under: {results_target_dir}")
+
+    latest_iter_dir = max(candidates, key=lambda x: x[0])[1]
+    return latest_iter_dir
+
+
+def prepare_storyboard_panels(best_storyboard_path, output_panel_dir, panel_count=6, layout="2x3"):
+    """
+    Split results/{target}/iter_max/bestStoryboard.png into:
+    panel1.png, panel2.png, ..., panel6.png
+
+    These are used as first-frame images for video generation.
+    """
+    output_panel_dir.mkdir(parents=True, exist_ok=True)
+
+    expected_paths = [
+        output_panel_dir / f"panel{i}.png"
+        for i in range(1, panel_count + 1)
+    ]
+
+    if all(p.exists() for p in expected_paths):
+        print(f"✅ Storyboard panels already exist: {output_panel_dir}")
+        return output_panel_dir
+
+    rows, cols = parse_storyboard_layout(layout)
+
+    if rows * cols != panel_count:
+        raise ValueError(
+            f"storyboard layout {layout} gives {rows * cols} panels, "
+            f"but panel_count is {panel_count}"
+        )
+
+    if not best_storyboard_path.exists():
+        raise FileNotFoundError(f"bestStoryboard.png not found: {best_storyboard_path}")
+
+    print(f"✂️ Splitting storyboard: {best_storyboard_path}")
+    print(f"   layout = {rows}x{cols}, output = {output_panel_dir}")
+
+    with Image.open(best_storyboard_path) as img:
+        width, height = img.size
+
+        panel_id = 1
+        for r in range(rows):
+            for c in range(cols):
+                left = round(c * width / cols)
+                upper = round(r * height / rows)
+                right = round((c + 1) * width / cols)
+                lower = round((r + 1) * height / rows)
+
+                cropped = img.crop((left, upper, right, lower))
+                out_path = output_panel_dir / f"panel{panel_id}.png"
+                cropped.save(out_path)
+
+                print(f"   saved panel{panel_id}: {out_path}")
+                panel_id += 1
+
+    return output_panel_dir
+
+
+def build_paths(args):
+    target_name = args.target
+
+    target_dir = PROJECT_ROOT / "target" / target_name
+    manga_panels_dir = target_dir / "manga_panels"
+    storyboard_panels_dir = target_dir / "storyboard_panels"
+
+    results_target_dir = PROJECT_ROOT / "results" / target_name
+    latest_iter_dir = find_latest_iter_dir(results_target_dir)
+
+    input_json_path = latest_iter_dir / "bestScript.json"
+
+    base_output_dir = PROJECT_ROOT / "video" / "pipeline_generations" / target_name
+
+    if not target_dir.exists():
+        raise FileNotFoundError(f"Target folder not found: {target_dir}")
+
+    if not manga_panels_dir.exists():
+        raise FileNotFoundError(f"Manga panels folder not found: {manga_panels_dir}")
+
+    if not storyboard_panels_dir.exists():
+        raise FileNotFoundError(f"Storyboard panels folder not found: {storyboard_panels_dir}")
+
+    if not input_json_path.exists():
+        raise FileNotFoundError(f"bestScript.json not found: {input_json_path}")
+
+    return {
+        "target_name": target_name,
+        "target_dir": target_dir,
+        "manga_panels_dir": manga_panels_dir,
+        "storyboard_panels_dir": storyboard_panels_dir,
+        "results_target_dir": results_target_dir,
+        "latest_iter_dir": latest_iter_dir,
+        "input_json_path": input_json_path,
+        "base_output_dir": base_output_dir,
+    }
+
 if __name__ == "__main__":
+    args = parse_args()
+    paths = build_paths(args)
+
+    target_name = paths["target_name"]
+    manga_panels_dir = paths["manga_panels_dir"]
+    input_json_path = paths["input_json_path"]
+    base_output_dir = paths["base_output_dir"]
+    storyboard_panels_dir = paths["storyboard_panels_dir"]
+
     print("start:", datetime.now())
-    os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
+    print(f"📁 target: {target_name}")
+    print(f"📄 script: {input_json_path}")
+    print(f"🖼️ manga panels: {manga_panels_dir}")
+    print(f"🎞️ storyboard panels: {storyboard_panels_dir}")
+    print(f"📦 output: {base_output_dir}")
+
+    os.makedirs(base_output_dir, exist_ok=True)
 
     run_dir = None
-    if AUTO_RESUME:
-        runs = sorted([d for d in os.listdir(BASE_OUTPUT_DIR) if d.startswith("run_")])
+    if args.auto_resume:
+        runs = sorted([d for d in os.listdir(base_output_dir) if d.startswith("run_")])
         if runs:
-            run_dir = os.path.join(BASE_OUTPUT_DIR, runs[-1])
+            run_dir = os.path.join(base_output_dir, runs[-1])
             print(f"🔄 [中斷回復] 偵測到過去的任務目錄，接續執行: {run_dir}")
             
     if not run_dir:
-        run_dir = os.path.join(BASE_OUTPUT_DIR, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        run_dir = os.path.join(base_output_dir, f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         os.makedirs(run_dir, exist_ok=True)
         print(f"🆕 建立新任務目錄: {run_dir}")
-
-    with open(INPUT_JSON_PATH, "r", encoding="utf-8") as f:
+    with open(input_json_path, "r", encoding="utf-8") as f:
         full_json = json.load(f)
         
     gemini_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -358,7 +532,7 @@ if __name__ == "__main__":
     best_videos = []
     prev_best_video_path = None
 
-    for i in range(1, PANEL_COUNT + 1):
+    for i in range(1, args.panel_count + 1):
         print(f"\n======================================")
         print(f"🎬 處理 Panel {i}")
         print(f"======================================")
@@ -374,17 +548,20 @@ if __name__ == "__main__":
             prev_best_video_path = final_panel_video_path
             continue
 
-        local_img_path = f"panel{i}.png"
-        if not os.path.exists(local_img_path):
-            print(f"❌ 找不到圖片 {local_img_path}，略過。")
+        local_img_path = storyboard_panels_dir / f"panel{i}.png"
+        if not local_img_path.exists():
+            print(f"❌ 找不到手切 storyboard panel 圖片 {local_img_path}，略過。")
             continue
-            
-        shutil.copy(local_img_path, os.path.join(panel_dir, "input.png"))
+
+        shutil.copy(str(local_img_path), os.path.join(panel_dir, "input.png"))
         
         panel_data = get_panel_data(full_json, i)
-        manga_img_path = f"manga_panel{i}.png"
-        optimal_duration = calculate_optimal_duration_int(manga_img_path, panel_data["clip"])
-        
+        manga_img_path = manga_panels_dir / f"panel{i}.png"
+        if not manga_img_path.exists():
+            print(f"❌ 找不到 manga panel 圖片 {manga_img_path}，略過。")
+            continue
+
+        optimal_duration = calculate_optimal_duration_int(str(manga_img_path), panel_data["clip"])
         wan_prompt = f"Rule:\n{WAN_SYSTEM_PROMPT.strip()}\n\nScript:\n{json.dumps(panel_data, ensure_ascii=False)}"
         save_file(wan_prompt, panel_dir, "wan_prompt.txt")
         save_file(panel_data, panel_dir, "filtered_script.json", True)
@@ -405,7 +582,7 @@ if __name__ == "__main__":
                 task_b_id = tasks_info["task_B"]["output"]["task_id"]
             else:
                 print("    上傳圖片至 ImgBB...")
-                image_url = upload_image_to_imgbb(local_img_path)
+                image_url = upload_image_to_imgbb(str(local_img_path))
                 
                 print("    🚀 提交任務 A 與 B 至 Wan...")
                 task_a_res = submit_wan(wan_prompt, image_url, duration=optimal_duration)
