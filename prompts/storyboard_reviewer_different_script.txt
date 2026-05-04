@@ -39,7 +39,7 @@ Evaluation Criteria:
 9. Background Consistency — Which storyboard maintains more consistent backgrounds across panels in style, palette, and setting?
 10. Character & Object Position Consistency — Which storyboard better preserves relative positions between characters and objects across panels?
 11. Object Layout Match — Which storyboard better matches the panel-internal object layout and spatial arrangement from the comic page? Judge this criterion based only on the composition inside each corresponding panel, including the relative positions, spacing, depth relationships, and arrangement of objects within the scene. Do not evaluate overall manga page layout, panel ordering, panel sizing, or storyboard-level framing structure.
-12. No Dialogue Boxes — Evaluate this criterion independently for each storyboard. A storyboard passes if it contains no dialogue boxes, speech bubbles, captions, subtitles, or narrative text. Sound effects (onomatopoeia) are allowed. Except for the caption of panel x under the images. Both storyboards may pass or fail independently.
+12. No Dialogue Boxes — Evaluate this criterion independently for each storyboard. A storyboard passes if it contains no dialogue boxes, speech bubbles, captions, subtitles, or narrative text.  Except for the caption of panel x under the images. Both storyboards may pass or fail independently.
 13. Left/Right Feature Consistency — Which storyboard more accurately preserves asymmetric character features on the correct side across panels, such as a scar over a specific eye, a one-sided hairstyle parting, asymmetric accessories, unique markings, or differently colored eyes, without unintentionally flipping them between shots?
 
 Scoring Rules:

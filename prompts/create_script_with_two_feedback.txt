@@ -42,7 +42,7 @@ CRITICAL: Output ONLY a valid JSON object.
 6. **Silent Panels**: If a panel image shows a character reacting without any speech bubbles, DO NOT assign any dialogue to that clip. Describe it purely as a visual and silent moment.
 7. **Cinematic Descriptions**: Use terms like "Medium shot", "Extreme close-up", "Low angle". Accurately represent the composition and intent of each panel.
 8. **Accessory & Small Object Rule**: Any small objects or accessories (e.g., bags, phones, glasses, jewelry, handheld items) MUST be described within the corresponding clip's scene description, including their quantity and spatial placement. DO NOT include these items in the character description fields.
-9. **Do not add any description about speech bubbles inside clip's description
+9. **Do not add any description about speech bubbles and sound effect inside clip's description**
 
 ---
 
