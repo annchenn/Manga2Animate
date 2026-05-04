@@ -58,4 +58,5 @@ Requirements:
 - Object placement must follow both the manga and the script.
 - Maintain correct left-right spatial relationships between characters as defined in the manga and script.
 - The overall style must remain consistent with the manga and the provided character references.
+- Character's face must be clear and identical to the reference image
 
