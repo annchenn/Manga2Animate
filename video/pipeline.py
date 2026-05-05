@@ -98,32 +98,37 @@ def get_panel_data(full_json, clip_index):
 # ======================
 # ⭐ 新增：DYNAMIC DURATION CALCULATION (計算動態整數秒數)
 # ======================
-def calculate_optimal_duration_int(image_path, clip_data):
-    base_time = 2.0 
-    
+def calculate_optimal_duration_int(panel_image_path, manga_page_path, clip_data):
     try:
-        with Image.open(image_path) as img:
-            width, height = img.size
-            area = width * height
-            standard_area = 62500.0 # 預設 250x250 基準
-            area_ratio = area / standard_area
-            if(area_ratio < 1.0):
-                visual_bonus = 0  # 小於基準圖，適度減少加成
-            else:   
-                visual_bonus = min(3.0, area_ratio * 1.0)
-    except Exception:
-        visual_bonus = 0.5
+        # 讀取整張漫畫以獲取總面積
+        with Image.open(manga_page_path) as full_img:
+            full_area = full_img.width * full_img.height
+            
+        # 讀取單一 Panel 獲取面積
+        with Image.open(panel_image_path) as panel_img:
+            panel_area = panel_img.width * panel_img.height
+            
+        area_ratio = panel_area / full_area
+        # 視覺秒數 = 佔比 * 10
+        visual_bonus = area_ratio * 10.0
+    except Exception as e:
+        print(f"        ⚠️ 面積計算失敗 ({e})，使用預設視覺秒數 2.0s")
+        visual_bonus = 2.0
+        area_ratio = 0
 
+    # 計算對話字數
     description = clip_data.get("description", "")
     dialogues = re.findall(r"Dialogue\([^)]+\):\s*'([^']+)'", description)
     total_words = sum(len(d.split()) for d in dialogues)
     text_bonus = total_words / 10.0
 
-    total_duration = base_time + visual_bonus + text_bonus
-    # 限制影片長度在 2~5 秒之間，並四捨五入取整數給 WAN API
+    # 總時間 = 視覺佔比時間 + 對話時間
+    total_duration = visual_bonus + text_bonus
+    
+    # 限制影片長度在 2~5 秒之間，並四捨五入取整數
     optimal_duration_int = max(2, min(5, int(round(total_duration))))
     
-    print(f"        ⏱️ [時長計算] 基礎:{base_time}s + 視覺:{visual_bonus:.2f}s + 對話({total_words}字):{text_bonus:.2f}s -> 動態指派: {optimal_duration_int} 秒")
+    print(f"        ⏱️ [時長計算] 視覺(佔比{area_ratio*100:.1f}%):{visual_bonus:.2f}s + 對話({total_words}字):{text_bonus:.2f}s -> 動態指派: {optimal_duration_int} 秒")
     return optimal_duration_int
 
 # ======================
@@ -361,6 +366,11 @@ def parse_args():
         help="Layout of bestStoryboard.png, default: 2x3"
     )
 
+    parser.add_argument(
+            "--manga-page",
+            default="manga.png",
+            help="Filename of the full manga page in the target folder"
+    )
     return parser.parse_args()
 
 
@@ -471,6 +481,7 @@ def build_paths(args):
 
     base_output_dir = PROJECT_ROOT / "video" / "pipeline_generations" / target_name
 
+    manga_page_path = target_dir / args.manga_page
     if not target_dir.exists():
         raise FileNotFoundError(f"Target folder not found: {target_dir}")
 
@@ -483,6 +494,8 @@ def build_paths(args):
     if not input_json_path.exists():
         raise FileNotFoundError(f"bestScript.json not found: {input_json_path}")
 
+    if not manga_page_path.exists():
+        print(f"⚠️ 警告: 找不到整張漫畫圖片 {manga_page_path}")
     return {
         "target_name": target_name,
         "target_dir": target_dir,
@@ -492,6 +505,7 @@ def build_paths(args):
         "latest_iter_dir": latest_iter_dir,
         "input_json_path": input_json_path,
         "base_output_dir": base_output_dir,
+        "manga_page_path": manga_page_path,
     }
 
 if __name__ == "__main__":
@@ -503,14 +517,16 @@ if __name__ == "__main__":
     input_json_path = paths["input_json_path"]
     base_output_dir = paths["base_output_dir"]
     storyboard_panels_dir = paths["storyboard_panels_dir"]
-
+    manga_page_path = paths["manga_page_path"]
+    
     print("start:", datetime.now())
     print(f"📁 target: {target_name}")
     print(f"📄 script: {input_json_path}")
     print(f"🖼️ manga panels: {manga_panels_dir}")
     print(f"🎞️ storyboard panels: {storyboard_panels_dir}")
     print(f"📦 output: {base_output_dir}")
-
+    print(f"🖼️ manga full page: {manga_page_path}")
+    
     os.makedirs(base_output_dir, exist_ok=True)
 
     run_dir = None
@@ -561,7 +577,7 @@ if __name__ == "__main__":
             print(f"❌ 找不到 manga panel 圖片 {manga_img_path}，略過。")
             continue
 
-        optimal_duration = calculate_optimal_duration_int(str(manga_img_path), panel_data["clip"])
+        optimal_duration = calculate_optimal_duration_int(str(manga_img_path), str(manga_page_path), panel_data["clip"])
         wan_prompt = f"Rule:\n{WAN_SYSTEM_PROMPT.strip()}\n\nScript:\n{json.dumps(panel_data, ensure_ascii=False)}"
         save_file(wan_prompt, panel_dir, "wan_prompt.txt")
         save_file(panel_data, panel_dir, "filtered_script.json", True)

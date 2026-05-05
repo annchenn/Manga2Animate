@@ -44,14 +44,11 @@ Manga2Animate/
 │       ├── iter0/
 │       │   ├── bestScript.json
 │       │   └── bestStoryboard.png
-│       ├── iter1/
-│       │   ├── bestScript.json
-│       │   └── bestStoryboard.png
 │       └── ...
 │
 ├── target/
 │   └── {target}/
-│       ├── manga_page.png
+│       ├── manga.png           
 │       ├── ref.png
 │       ├── manga_panels/
 │       │   ├── panel1.png
@@ -65,7 +62,6 @@ Manga2Animate/
 └── video/
     ├── pipeline.py
     ├── README.md
-    ├── requirements.txt
     └── pipeline_generations/
 ```
 
@@ -73,85 +69,32 @@ Manga2Animate/
 
 ## Input Files
 
-The pipeline uses a target argument, such as:
-
-```text
-death_notebook
-```
-
-The target name should match folders under both:
-
-```text
-Manga2Animate/results/{target}/
-Manga2Animate/target/{target}/
-```
-
-For example:
-
-```text
-Manga2Animate/results/death_notebook/
-Manga2Animate/target/death_notebook/
-```
-
----
+The pipeline uses a target argument, such as `-t death_notebook`.
+The target name should match folders under both `results/` and `target/`.
 
 ### 1. Script JSON
 
 The pipeline automatically loads the latest iteration script from:
+`Manga2Animate/results/{target}/iter_max/bestScript.json`
 
-```text
-Manga2Animate/results/{target}/iter_max/bestScript.json
-```
+### 2. Full Manga Page (For Ratio Calculation)
 
-Example:
+To calculate how long a panel should be shown, the pipeline compares the panel's size to the full page. You must provide the original full manga page:
+`Manga2Animate/target/{target}/manga.png`
 
-```text
-Manga2Animate/results/death_notebook/iter1/bestScript.json
-```
+*(Note: If your full page has a different filename, you can specify it using the `--manga-page` argument).*
 
-Expected JSON structure:
-
-```json
-{
-  "characters": [
-    {
-      "id": 1,
-      "description": "Teenage boy, slim build..."
-    }
-  ],
-  "clips": [
-    {
-      "id": 1,
-      "description": "Character[1] walks into the room. Dialogue(Character[1]): 'Hello!'"
-    }
-  ]
-}
-```
-
-The system automatically matches referenced characters using `Character[ID]`.
-
----
-
-### 2. Storyboard Panels for Video Generation
+### 3. Storyboard Panels (For Video Generation)
 
 The first-frame images for Wan I2V should be placed manually under:
+`Manga2Animate/target/{target}/storyboard_panels/panel{i}.png`
 
-```text
-Manga2Animate/target/{target}/storyboard_panels/
-```
+### 4. Original Manga Panels (For Duration Estimation)
 
-Example:
+The original manga panel crops should be placed under:
+`Manga2Animate/target/{target}/manga_panels/panel{i}.png`
 
-```text
-Manga2Animate/target/death_notebook/storyboard_panels/panel1.png
-Manga2Animate/target/death_notebook/storyboard_panels/panel2.png
-Manga2Animate/target/death_notebook/storyboard_panels/panel3.png
-Manga2Animate/target/death_notebook/storyboard_panels/panel4.png
-Manga2Animate/target/death_notebook/storyboard_panels/panel5.png
-Manga2Animate/target/death_notebook/storyboard_panels/panel6.png
-```
-
-These are the cleaned or manually cropped storyboard panels used as the first frame for animation generation.
+These manga panels are compared against `manga.png` to calculate the exact area ratio.
 
 ---
 
@@ -320,6 +263,11 @@ Set the number of panels:
 
 ```bash
 python video/pipeline.py -t death_notebook --panel-count 6
+```
+
+If your full manga page has a different filename
+```bash
+python video/pipeline.py -t death_notebook --manga-page my_custom_page.jpg
 ```
 
 ---
