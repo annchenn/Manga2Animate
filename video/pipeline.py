@@ -21,19 +21,19 @@ WAN_SYSTEM_PROMPT = """1. Interpret the 'Script' JSON to generate a consistent v
 2. Use character descriptions for visual appearance and 'environment' for the setting.
 3. Execute the actions described in 'clips' with natural motion and cinematic 1k quality.
 4. Maintain visual continuity across the entire duration.
-5. Avoid abrupt cuts; use smooth camera movements and transitions.
-6. Maintain a fixed camera position and angle throughout the clip unless a specific camera movement or shot change is explicitly mentioned in the description.
-7. No dialogue boxes or speech bubbles in any storyboard panels. Sound effects (onomatopoeia) are allowed, but no captions, subtitles, or narrative text.
-8. Don't add any elements that are not described in the 'Script' JSON. Strictly adhere to the provided character descriptions and environment settings without introducing new objects, characters, or backgrounds that are not mentioned in the script.
-9. Ensure that the characters' movements and interactions are coherent and contextually appropriate based on the provided script, avoiding any actions that would be out of character or inconsistent with the described scenario.
+5. Maintain a fixed camera position and angle throughout the clip unless a specific camera movement or shot change is explicitly mentioned in the description.
+6. No dialogue boxes, sound effects and speech bubbles in any storyboard panels.
+7. Don't add any elements that are not described in the 'Script' JSON. Strictly adhere to the provided character descriptions and environment settings without introducing new objects, characters, or backgrounds that are not mentioned in the script.
+8. Ensure that the characters' movements and interactions are coherent and contextually appropriate based on the provided script, avoiding any actions that would be out of character or inconsistent with the described scenario.
+9. Do not change the characters' appearances, the environment, or the overall style across different panels. Each panel's video should visually align with the others to create a cohesive narrative flow when viewed in sequence.
 """
 
 # ======================
 # CONFIG
 # ======================
-DASHSCOPE_API_KEY = ""
-GEMINI_API_KEY = ""
-IMGBB_API_KEY = ""
+GEMINI_API_KEY = 
+DASHSCOPE_API_KEY = 
+IMGBB_API_KEY = 
 
 MODEL_NAME = "wan2.7-i2v"
 VIDEO_DURATION = 3
@@ -62,21 +62,54 @@ def save_file(content, folder, filename, is_json=False):
 # IMGBB UPLOAD
 # ======================
 def upload_image_to_imgbb(image_path):
-    url = "https://api.imgbb.com/1/upload"
+    api_key = os.getenv("IMGBB_API_KEY")
+
+    if not api_key:
+        raise RuntimeError("IMGBB_API_KEY is not set. Please export IMGBB_API_KEY first.")
+
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image not found: {image_path}")
+
+    file_size_mb = os.path.getsize(image_path) / 1024 / 1024
+    print(f"    上傳圖片至 ImgBB... ({image_path}, {file_size_mb:.2f} MB)")
+
     with open(image_path, "rb") as f:
-        img_bytes = f.read()
+        encoded_image = base64.b64encode(f.read()).decode("utf-8")
 
+    url = "https://api.imgbb.com/1/upload"
     payload = {
-        "key": IMGBB_API_KEY,
-        "image": base64.b64encode(img_bytes)
+        "key": api_key,
+        "image": encoded_image,
     }
-    res = requests.post(url, data=payload)
-    data = res.json()
 
-    if not data.get("success"):
-        raise Exception(f"Upload failed: {data}")
+    try:
+        res = requests.post(url, data=payload, timeout=60)
 
-    return data["data"]["url"]
+        print("    ImgBB status:", res.status_code)
+        print("    ImgBB content-type:", res.headers.get("content-type"))
+
+        if res.status_code != 200:
+            print("    ImgBB response:", res.text[:1000])
+            raise RuntimeError(f"ImgBB upload failed with status {res.status_code}")
+
+        try:
+            data = res.json()
+        except Exception:
+            print("    ImgBB returned non-JSON response:")
+            print(res.text[:1000])
+            raise RuntimeError("ImgBB did not return valid JSON.")
+
+        if not data.get("success"):
+            print("    ImgBB JSON response:", data)
+            raise RuntimeError("ImgBB upload failed according to JSON response.")
+
+        return data["data"]["url"]
+
+    except requests.exceptions.Timeout:
+        raise RuntimeError("ImgBB upload timeout. Network or ImgBB server may be unstable.")
+
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"ImgBB request failed: {e}")
 
 # ======================
 # JSON FILTERING
@@ -122,13 +155,14 @@ def calculate_optimal_duration_int(panel_image_path, manga_page_path, clip_data)
     total_words = sum(len(d.split()) for d in dialogues)
     text_bonus = total_words / 10.0
 
+    base_time = 1.0
     # 總時間 = 視覺佔比時間 + 對話時間
-    total_duration = visual_bonus + text_bonus
+    total_duration = visual_bonus + text_bonus + base_time
     
     # 限制影片長度在 2~5 秒之間，並四捨五入取整數
     optimal_duration_int = max(2, min(5, int(round(total_duration))))
     
-    print(f"        ⏱️ [時長計算] 視覺(佔比{area_ratio*100:.1f}%):{visual_bonus:.2f}s + 對話({total_words}字):{text_bonus:.2f}s -> 動態指派: {optimal_duration_int} 秒")
+    print(f"        ⏱️ [時長計算] M視覺(佔比{area_ratio*100:.1f}%):{visual_bonus:.2f}s + 對話({total_words}字):{text_bonus:.2f}s + 基礎時間:{base_time:.2f}s -> 動態指派: {optimal_duration_int} 秒")
     return optimal_duration_int
 
 # ======================
@@ -149,10 +183,11 @@ def submit_wan(prompt, image_url, duration=3):
                 {"type": "first_frame", "url": image_url}
             ]
         },
+        # turn true => false
         "parameters": {
             "size": "1K",
             "duration": duration,
-            "prompt_extend": True,
+            "prompt_extend": False,
             "watermark": False
         }
     }
@@ -365,10 +400,10 @@ def parse_args():
         default="2x3",
         help="Layout of bestStoryboard.png, default: 2x3"
     )
-
+    # manga_page.png
     parser.add_argument(
             "--manga-page",
-            default="manga.png",
+            default="manga_page.png",
             help="Filename of the full manga page in the target folder"
     )
     return parser.parse_args()
