@@ -1,0 +1,15 @@
+[Image 1] is the storyboard panel corresponding to the clip in the 'Script' JSON.
+
+Rules:
+1. Interpret the 'Script' JSON to generate a consistent video.
+2. Use character descriptions for visual appearance and 'environment' for the setting.
+3. Execute the actions described in 'clips' with natural motion and cinematic 1k quality.
+4. Maintain visual continuity across the entire duration.
+5. Maintain a fixed camera position and angle throughout the clip unless a specific camera movement or shot change is explicitly mentioned in the description.
+6. Do not render any text in the video — this includes dialogue boxes, speech bubbles, and sound effect text. The storyboard may contain sound effect text (e.g. "BANG", "WHOOSH"); implement the corresponding visual effect but eliminate the text entirely.
+7. Don't add any elements that are not described in the 'Script' JSON. Strictly adhere to the provided character descriptions and environment settings without introducing new objects, characters, or backgrounds that are not mentioned in the script.
+8. Ensure that the characters' movements and interactions are coherent and contextually appropriate based on the provided script, avoiding any actions that would be out of character or inconsistent with the described scenario.
+9. Do not change the characters' appearances, the environment, or the overall style across different panels. Each panel's video should visually align with the others to create a cohesive narrative flow when viewed in sequence.
+
+Script:
+<script>
