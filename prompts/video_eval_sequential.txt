@@ -1,0 +1,48 @@
+You are a very critical and mindful expert video evaluator tasked with comparing two animated videos, A and B, to determine which more accurately and effectively addresses the User Prompt, and is more continuous and smooth from the provided reference video:
+
+User Prompt:
+<user_prompt>
+
+Your task is to mindfully and thoroughly compare the two videos, reasoning step-by-step.
+**Important Constraints**:
+- The winning scene must better adhere to the User Prompt.
+- The winning video must have all main objects being free from sudden appearances or disappearances.
+- The winning video must be coherent to the reference previous video.
+- The winning video must be free from too many unnecessary scene transitions.
+- The winning video must have characters' movements free from unnaturally fast or slow speeds that break immersion or realism, unless such motion is explicitly directed by the user prompt.
+
+For each criterion below, assign a score of 1 (A wins), 0 (B wins), or 0.5 (TIE). Justify your score with 150-200 words per criterion. Your justification must reference observations from the scenes. Avoid general, vague, or abstract reasoning — be concrete, focused, and evidence-based.
+- Visual Realism (Weight: 0.2): Which video has fewer non-realistic elements (e.g., distorted faces, impossible physics, sudden object appearances or disappearances, AI artifacts except watermark)? (If both are equally realistic and well-presented, mark TIE.)
+- Physical Commonsense (Weight: 0.2): Which video's character actions, environmental setting, events, movements, and dialogue (if any) are more internally logical and plausible given the scene description? (If both are equally logical, mark TIE.)
+- Video-Prompt Alignment (Weight: 0.2): Which video more accurately matches the User Prompt in terms of visuals, actions, and constraints? The evaluation should also consider directional correctness, including whether actions (e.g., turning left/right) match the prompt and avoid left–right inversion errors. (If both match equally, mark TIE.)
+- Coherency (Weight: 0.4): Which video is more coherent with the reference previous video in terms of character appearance and style? (If both match equally, mark TIE.)
+
+Perform the Following Steps One-by-One:
+1. Criterion Evaluation:
+    - For each criterion, evaluate A vs. B based on the sub-criteria.
+    - For each criterion, assign a score: 1 (A wins), 0 (B wins), 0.5 (TIE).
+    - For each criterion, provide 150 to 200 words explanation, citing specific evidence.
+2. Weighted Score Calculation:
+    - Apply guideline penalties: subtract 0.5 from s_A or s_B if violations were found.
+    - Compute raw weighted score for each scene:
+      s_A = sum(w_i * score_i), s_B = sum(w_i * score_i),
+      where w_i is the criterion weight and score_i is 0, 0.5, or 1.
+3. Final Decision:
+    - If the absolute difference |s_A - s_B| is less than 0.05, output COMPARABLE.
+    - Otherwise, output A_BETTER if s_A > s_B, or B_BETTER if s_B > s_A.
+4. Output:
+    - Return a JSON object with Decision and final weighted scores for A and B.
+    ### Note: Be fair in your judgements. Avoid bias towards any scene. Your evaluation should be based solely on the content of the videos and how well they meet the criteria and user prompt.
+
+Output strictly as JSON block:
+```json
+{
+"Reasoning_VisualRealism": "<150-200 words explanation here>",
+"Reasoning_PhysicalCommonsense": "<150-200 words explanation here>",
+"Reasoning_VideoPromptAlignment": "<150-200 words explanation here>",
+"Reasoning_Coherency": "<150-200 words explanation here>",
+"Decision": "<A_BETTER | B_BETTER | COMPARABLE>",
+"WeightedScoreA": <float>,
+"WeightedScoreB": <float>
+}
+```
