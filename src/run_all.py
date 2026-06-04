@@ -13,6 +13,13 @@ load_dotenv()
 from src.log import init_log_file, rule, section, success
 
 
+GCP_PROJECT_MAP = {
+    "1": os.getenv("GOOGLE_CLOUD_PROJECT"),
+    "2": os.getenv("GOOGLE_CLOUD_PROJECT2"),
+    "3": os.getenv("GOOGLD_CLOUD_PROJECT3"),
+}
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the manga-to-storyboard pipeline.")
     parser.add_argument("-t", "--target", required=True, help="Target name under target/")
@@ -20,11 +27,16 @@ def parse_args():
         "-n", "--num-iterations", type=int, default=None,
         help="Number of iterations (overrides NUM_ITERATIONS env var; default 3)",
     )
+    parser.add_argument(
+        "-p", "--project", choices=["1", "2", "3"], default="1",
+        help="Google Cloud project to use (1=GOOGLE_CLOUD_PROJECT, 2=GOOGLE_CLOUD_PROJECT2, 3=GOOGLD_CLOUD_PROJECT3); default 1",
+    )
     return parser.parse_args()
 
 
 args = parse_args()
 os.environ["TARGET"] = args.target
+os.environ["GOOGLE_CLOUD_PROJECT"] = GCP_PROJECT_MAP[args.project]
 
 init_log_file(Path("results") / args.target / "log.txt")
 

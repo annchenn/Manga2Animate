@@ -23,7 +23,7 @@ load_dotenv()
 IMGBB_API_KEY     = os.getenv("IMGBB_API_KEY")
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY") # for wan2.7 generation
 ARK_API_KEY       = os.getenv("ARK_API_KEY") # for seedance generation
-GCP_PROJECT       = os.getenv("GOOGLE_CLOUD_PROJECT")
+GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY")     # for video evaluation (Files API, developer only)
 GCP_LOCATION      = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 
 VIDEO_GEN_MODEL     = os.getenv("VIDEO_GENERATION_MODEL", "dreamina-seedance-2-0-260128")
@@ -91,13 +91,11 @@ def get_panel_data(full_json, clip_index):
     return {"characters": filtered_chars, "clip": clip}
 
 
-def calculate_optimal_duration(panel_image_path, manga_page_path, clip_data, model):
+def calculate_optimal_duration(panel_image_path, total_panels_area, clip_data, model):
     try:
-        with Image.open(manga_page_path) as full_img:
-            full_area = full_img.width * full_img.height
         with Image.open(panel_image_path) as panel_img:
             panel_area = panel_img.width * panel_img.height
-        area_ratio = panel_area / full_area
+        area_ratio = panel_area / total_panels_area
         visual_bonus = area_ratio * 10.0
     except Exception as e:
         log.warn(f"Area calculation failed ({e}), using default 2.0s")
@@ -307,7 +305,6 @@ def build_paths(args):
     latest_iter_dir       = find_latest_iter_dir(results_target_dir)
     input_json_path       = latest_iter_dir / "bestScript.json"
     base_output_dir       = results_target_dir / "video" / args.model
-    manga_page_path       = target_dir / args.manga_page
 
     for path, label in [
         (target_dir,            "target"),
@@ -317,8 +314,6 @@ def build_paths(args):
     ]:
         if not Path(path).exists():
             raise FileNotFoundError(f"{label} not found: {path}")
-    if not manga_page_path.exists():
-        log.warn(f"Manga page not found: {manga_page_path}")
 
     return {
         "target_name":           args.target,
@@ -326,7 +321,6 @@ def build_paths(args):
         "storyboard_panels_dir": storyboard_panels_dir,
         "input_json_path":       input_json_path,
         "base_output_dir":       base_output_dir,
-        "manga_page_path":       manga_page_path,
     }
 
 # ======================
@@ -338,8 +332,7 @@ def parse_args():
     parser.add_argument("-m", "--model",     required=False, default=_detect_model_type(VIDEO_GEN_MODEL), choices=["wan", "seedance"], help="Video model to use (default: auto-detected from VIDEO_GENERATION_MODEL in .env)")
     parser.add_argument("--panel-count",     type=int, default=PANEL_COUNT)
     parser.add_argument("--auto-resume",     action="store_true",
-                        help="Resume the latest run_* folder, skipping panels that already have best_panel_i.mp4")
-    parser.add_argument("--manga-page",      default="manga_page.png")
+                        help="Resume the latest run_* folder; skips generation if candidates exist, skips panel if best_panel exists")
     return parser.parse_args()
 
 # ======================
@@ -355,7 +348,6 @@ if __name__ == "__main__":
     storyboard_panels_dir = paths["storyboard_panels_dir"]
     input_json_path       = paths["input_json_path"]
     base_output_dir       = paths["base_output_dir"]
-    manga_page_path       = paths["manga_page_path"]
 
     log.section(f"Video Pipeline — {model.upper()} — {target_name}")
     log.info(f"generation model : {VIDEO_GEN_MODEL}")
@@ -381,7 +373,15 @@ if __name__ == "__main__":
         full_json = json.load(f)
 
     prompt_template = PROMPT_FILE.read_text(encoding="utf-8")
-    gemini_client   = genai.Client(vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION)
+    # Files API (used for video evaluation) is only supported in the Developer API, not Vertex AI
+    gemini_client   = genai.Client(api_key=GEMINI_API_KEY)
+
+    total_panels_area = sum(
+        Image.open(manga_panels_dir / f"panel{i}.png").width *
+        Image.open(manga_panels_dir / f"panel{i}.png").height
+        for i in range(1, args.panel_count + 1)
+        if (manga_panels_dir / f"panel{i}.png").exists()
+    )
 
     best_videos          = []
     prev_best_video_path = None
@@ -411,7 +411,7 @@ if __name__ == "__main__":
             continue
 
         panel_data       = get_panel_data(full_json, i)
-        optimal_duration = calculate_optimal_duration(str(manga_img_path), str(manga_page_path), panel_data["clip"], model)
+        optimal_duration = calculate_optimal_duration(str(manga_img_path), total_panels_area, panel_data["clip"], model)
         prompt           = prompt_template.replace("<script>", json.dumps(panel_data, ensure_ascii=False))
 
         video_1_path    = os.path.join(panel_dir, "candidate_1.mp4")

@@ -3,7 +3,7 @@ import time
 from src.log import error, status, warn
 
 
-def with_retry(fn, max_retries: int = 10, delay: float = 5.0, default=None, label: str | None = None):
+def with_retry(fn, max_retries: int = 20, delay: float = 5.0, default=None, label: str | None = None):
     """Call fn(), retrying up to max_retries times on any exception.
 
     If `label` is given, an animated spinner with that label runs during each
