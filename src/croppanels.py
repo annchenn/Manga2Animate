@@ -136,9 +136,7 @@ def main():
             warn(f"  No panels detected on page {page_num} — skipping.")
             continue
 
-        ordered = sort_panels_reading_order(
-            [list(b) for b in raw_panels], img_array.shape[0]
-        )
+        ordered = raw_panels
 
         src_image = Image.fromarray(img_array)
         for bbox in ordered:
