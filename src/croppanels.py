@@ -51,35 +51,48 @@ def read_image_as_np_array(image_path: Path) -> np.ndarray:
         return np.array(image)
 
 
-def sort_panels_reading_order(bboxes, image_height, row_overlap_threshold=0.5):
-    """Sort bboxes into manga reading order: top-to-bottom rows, right-to-left within each row."""
+def sort_panels_reading_order(bboxes, image_height, debug=False):
     if not bboxes:
         return []
 
-    # Assign each panel to a row by grouping vertically overlapping panels
-    row_height_hint = image_height * row_overlap_threshold
-    sorted_by_y = sorted(bboxes, key=lambda b: b[1])  # sort by y1
+    # Step 1: compute center points
+    items = []
+    for b in bboxes:
+        x1, y1, x2, y2 = b
+        cx = (x1 + x2) / 2
+        cy = (y1 + y2) / 2
+        items.append((b, cx, cy))
 
-    rows: list[list] = []
-    for bbox in sorted_by_y:
-        x1, y1, x2, y2 = bbox
+    # Step 2: sort by y-center
+    items.sort(key=lambda x: x[2])
+
+    rows = []
+    row_tolerance = image_height * 0.06  # ⭐ stable threshold
+
+    # Step 3: clustering into rows (stable version)
+    for bbox, cx, cy in items:
         placed = False
+
         for row in rows:
-            # compare vertical center overlap with existing row range
-            row_y1 = min(b[1] for b in row)
-            row_y2 = max(b[3] for b in row)
-            center_y = (y1 + y2) / 2
-            if row_y1 <= center_y <= row_y2 + row_height_hint * 0.3:
-                row.append(bbox)
+            # row center
+            row_cy = sum(r[2] for r in row) / len(row)
+
+            if abs(cy - row_cy) <= row_tolerance:
+                row.append((bbox, cx, cy))
                 placed = True
                 break
-        if not placed:
-            rows.append([bbox])
 
-    # Within each row sort right-to-left (manga reading order)
+        if not placed:
+            rows.append([(bbox, cx, cy)])
+
+    # Step 4: sort rows top → bottom
+    rows.sort(key=lambda r: sum(x[2] for x in r) / len(r))
+
+    # Step 5: inside row sort right → left
     ordered = []
     for row in rows:
-        ordered.extend(sorted(row, key=lambda b: -b[0]))  # descending x1
+        row_sorted = sorted(row, key=lambda x: -x[1])
+        ordered.extend([x[0] for x in row_sorted])
 
     return ordered
 
