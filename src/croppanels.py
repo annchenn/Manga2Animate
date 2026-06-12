@@ -4,8 +4,8 @@ Crop manga panels from one or more manga pages using the MAGI model.
 Input : target/<target>/manga_page.*  and/or  manga_page1.*, manga_page2.*, ...
 Output: target/<target>/manga_panels/panel1.png, panel2.png, ...  (sequential across all pages)
 
-Panels are sorted in manga reading order: top-to-bottom rows,
-right-to-left within each row.
+Panels are sorted using MAGI's built-in reading-order algorithm
+(directed-graph topological sort with cycle breaking).
 """
 
 import argparse
@@ -47,54 +47,15 @@ def find_manga_pages(directory: Path) -> list[Path]:
 
 def read_image_as_np_array(image_path: Path) -> np.ndarray:
     with open(image_path, "rb") as f:
-        image = Image.open(f).convert("L").convert("RGB")
+        image = Image.open(f).convert("RGB")
         return np.array(image)
 
 
-def sort_panels_reading_order(bboxes, image_height, debug=False):
-    if not bboxes:
-        return []
+def to_grayscale_rgb(img_array: np.ndarray) -> np.ndarray:
+    gray = Image.fromarray(img_array).convert("L").convert("RGB")
+    return np.array(gray)
 
-    # Step 1: compute center points
-    items = []
-    for b in bboxes:
-        x1, y1, x2, y2 = b
-        cx = (x1 + x2) / 2
-        cy = (y1 + y2) / 2
-        items.append((b, cx, cy))
 
-    # Step 2: sort by y-center
-    items.sort(key=lambda x: x[2])
-
-    rows = []
-    row_tolerance = image_height * 0.06  # ⭐ stable threshold
-
-    # Step 3: clustering into rows (stable version)
-    for bbox, cx, cy in items:
-        placed = False
-
-        for row in rows:
-            # row center
-            row_cy = sum(r[2] for r in row) / len(row)
-
-            if abs(cy - row_cy) <= row_tolerance:
-                row.append((bbox, cx, cy))
-                placed = True
-                break
-
-        if not placed:
-            rows.append([(bbox, cx, cy)])
-
-    # Step 4: sort rows top → bottom
-    rows.sort(key=lambda r: sum(x[2] for x in r) / len(r))
-
-    # Step 5: inside row sort right → left
-    ordered = []
-    for row in rows:
-        row_sorted = sorted(row, key=lambda x: -x[1])
-        ordered.extend([x[0] for x in row_sorted])
-
-    return ordered
 
 
 def main():
@@ -109,7 +70,8 @@ def main():
     info(f"Found {len(manga_pages)} page(s): {[p.name for p in manga_pages]}")
     info(f"Output: {out_dir}")
 
-    img_arrays = [read_image_as_np_array(p) for p in manga_pages]
+    img_arrays  = [read_image_as_np_array(p) for p in manga_pages]
+    gray_arrays = [to_grayscale_rgb(a) for a in img_arrays]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     step(f"Loading MAGI model on {device}...")
@@ -121,7 +83,7 @@ def main():
 
     step("Detecting panels...")
     with torch.no_grad():
-        results = model.predict_detections_and_associations(img_arrays)
+        results = model.predict_detections_and_associations(gray_arrays)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     panel_idx = 1
@@ -136,7 +98,11 @@ def main():
             warn(f"  No panels detected on page {page_num} — skipping.")
             continue
 
-        ordered = raw_panels
+        text_bboxes = result["texts"]
+        sorted_panel_indices, _ = model.sort_panels_and_text_bboxes_in_reading_order(
+            [raw_panels], [text_bboxes]
+        )
+        ordered = [raw_panels[i] for i in sorted_panel_indices[0]]
 
         src_image = Image.fromarray(img_array)
         for bbox in ordered:

@@ -1,8 +1,10 @@
 import os
+import tempfile
 from pathlib import Path
+
 import numpy as np
-from PIL import Image
 import torch
+from PIL import Image
 from transformers import AutoModel
 
 from src.log import info, status, success
@@ -14,12 +16,23 @@ TARGET_DIR = BASE_DIR / "target" / _target if _target else BASE_DIR / "target"
 RESULTS_DIR = BASE_DIR / "results" / _target if _target else BASE_DIR / "results"
 OUTPUT_DIR = RESULTS_DIR / "character"
 
+EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
-def find_image(directory: Path, stem: str) -> Path:
-    matches = list(directory.glob(f"{stem}.*"))
-    if not matches:
-        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
-    return matches[0]
+
+def find_manga_pages(directory: Path) -> list[Path]:
+    pages: list[tuple[int, Path]] = []
+    for p in directory.iterdir():
+        if p.suffix.lower() not in EXTS:
+            continue
+        name = p.stem
+        if name == "manga_page":
+            pages.append((0, p))
+        elif name.startswith("manga_page") and name[len("manga_page"):].isdigit():
+            pages.append((int(name[len("manga_page"):]), p))
+    if not pages:
+        raise FileNotFoundError(f"No manga_page* image found in {directory}")
+    pages.sort(key=lambda x: x[0])
+    return [p for _, p in pages]
 
 
 def read_image_as_np_array(image_path: Path) -> np.ndarray:
@@ -31,9 +44,9 @@ def read_image_as_np_array(image_path: Path) -> np.ndarray:
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    manga_path = find_image(TARGET_DIR, "manga_page")
-    info(f"Loading manga page from {manga_path.name}")
-    images = [read_image_as_np_array(manga_path)]
+    manga_pages = find_manga_pages(TARGET_DIR)
+    info(f"Found {len(manga_pages)} page(s): {[p.name for p in manga_pages]}")
+    images = [read_image_as_np_array(p) for p in manga_pages]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     with status(f"Loading MAGI model on {device}..."):
@@ -49,11 +62,16 @@ def main():
         ocr_results = model.predict_ocr(images, text_bboxes)
 
     out_path = OUTPUT_DIR / "transcript.txt"
-    model.generate_transcript_for_single_image(
-        results[0],
-        ocr_results[0],
-        filename=str(out_path),
-    )
+    parts = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, (result, ocr) in enumerate(zip(results, ocr_results)):
+            tmp_path = Path(tmp) / f"transcript_{i}.txt"
+            model.generate_transcript_for_single_image(
+                result, ocr, filename=str(tmp_path)
+            )
+            parts.append(tmp_path.read_text(encoding="utf-8"))
+
+    out_path.write_text("".join(parts), encoding="utf-8")
     success(f"Transcript saved to {out_path}")
 
 
