@@ -76,14 +76,33 @@ python src/croppanels.py -t <target>
 
 # 2. Run the storyboard pipeline (script → evaluation → storyboard, N iterations)
 python src/run_all.py -t <target>
+
 # override iteration count:
+# This runs iter0, iter1, ..., iter<N-1>
 python src/run_all.py -t <target> -n 3
+
+# auto-resume from the first incomplete iteration/stage:
+python src/run_all.py -t <target> --auto-resume
+
+# auto-resume and continue until a specific final iteration:
+# This runs/resumes up to iter5, including iter5
+python src/run_all.py -t <target> --auto-resume --to-iter 5
+
+# manually resume from a specific iteration:
+# This starts from iter3 and continues to the default final iteration
+python src/run_all.py -t <target> --from-iter 3
+
+# manually resume from iter3 and stop after iter5:
+python src/run_all.py -t <target> --from-iter 3 --to-iter 5
+
 # select a different GCP project (default: GOOGLE_CLOUD_PROJECT):
 python src/run_all.py -t <target> -p 2
 
 # 3. Generate a 15-second video from the best storyboard
 python src/create_video_fullstoryboard.py -t <target>
 ```
+
+When `--auto-resume` is enabled, `run_all.py` checks the existing output files under `results/<target>/` and skips completed stages automatically. For example, if `iter0` and `iter1` are complete but `iter2` is incomplete, the pipeline resumes from the missing part of `iter2` instead of starting over.
 
 All input files come from `target/<target>/` and all results land in `results/<target>/`.
 
@@ -176,7 +195,7 @@ prompt for the next `create_script.py` invocation.
 | `NUM_SCRIPTS` | Number of scripts generated per iteration |
 | `NUM_CLIPS` | Number of manga panels per page |
 | `NUM_STORYBOARDS` | Number of storyboards generated per best script |
-| `NUM_ITERATIONS` | Number of total iterations (Stage 0 + iter 0..N-1); default 3 |
+| `NUM_ITERATIONS` | Number of total iterations. With the default count-based behavior, `NUM_ITERATIONS=3` means `iter0`, `iter1`, and `iter2`. |
 | `EXP1`, `EXP2` | Few-shot example indices |
 | `GOOGLE_CLOUD_PROJECT` | Vertex AI project ID |
 | `GOOGLE_CLOUD_LOCATION` | Vertex AI region |
@@ -225,6 +244,7 @@ results/<target>/
 ```
 
 ---
+
 # Pipeline
 
 ```mermaid
