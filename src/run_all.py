@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.log import init_log_file, rule, section, success
+from src.log import init_log_file, rule, section, success, info, warn
 
 
 GCP_PROJECT_MAP = {
@@ -24,11 +24,34 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run the manga-to-storyboard pipeline.")
     parser.add_argument("-t", "--target", required=True, help="Target name under target/")
     parser.add_argument(
-        "-n", "--num-iterations", type=int, default=None,
-        help="Number of iterations (overrides NUM_ITERATIONS env var; default 3)",
+        "-n",
+        "--num-iterations",
+        type=int,
+        default=None,
+        help="Number of iterations to run, using the old behavior: -n 3 means iter0~iter2. Overridden by --to-iter.",
     )
     parser.add_argument(
-        "-p", "--project", choices=["1", "2", "3"], default="1",
+        "--to-iter",
+        type=int,
+        default=None,
+        help="Run until iter M, inclusive. Example: --to-iter 5 means run iter0~iter5.",
+    )
+    parser.add_argument(
+        "--from-iter",
+        type=int,
+        default=None,
+        help="Manually start from iter N. If omitted with --auto-resume, the first incomplete iter is detected automatically.",
+    )
+    parser.add_argument(
+        "--auto-resume",
+        action="store_true",
+        help="Skip completed stages and continue from the first incomplete iter/stage.",
+    )
+    parser.add_argument(
+        "-p",
+        "--project",
+        choices=["1", "2", "3"],
+        default="1",
         help="Google Cloud project to use (1=GOOGLE_CLOUD_PROJECT, 2=GOOGLE_CLOUD_PROJECT2, 3=GOOGLD_CLOUD_PROJECT3); default 1",
     )
     return parser.parse_args()
@@ -49,15 +72,55 @@ import src.generate_storyboard as generate_storyboard
 import src.evaluate_storyboards as evaluate_storyboards
 
 
-NUM_ITERATIONS = args.num_iterations if args.num_iterations is not None else int(
-    os.environ.get("NUM_ITERATIONS", "3")
-)
+if args.to_iter is not None:
+    if args.to_iter < 0:
+        raise ValueError("--to-iter must be >= 0")
+    FINAL_ITER = args.to_iter
+    NUM_ITERATIONS = FINAL_ITER + 1
+else:
+    NUM_ITERATIONS = args.num_iterations if args.num_iterations is not None else int(
+        os.environ.get("NUM_ITERATIONS", "3")
+    )
+    if NUM_ITERATIONS <= 0:
+        raise ValueError("NUM_ITERATIONS / --num-iterations must be > 0")
+    FINAL_ITER = NUM_ITERATIONS - 1
+
+if args.from_iter is not None and not (0 <= args.from_iter <= FINAL_ITER):
+    raise ValueError(f"--from-iter must be between 0 and {FINAL_ITER}")
+
+
+# -------------------------
+# Completion / checkpoint helpers
+# -------------------------
+
+def _nonempty_file(path: Path) -> bool:
+    return path.exists() and path.is_file() and path.stat().st_size > 0
+
+
+def _valid_json(path: Path) -> bool:
+    if not _nonempty_file(path):
+        return False
+    try:
+        json.loads(path.read_text(encoding="utf-8"))
+        return True
+    except Exception:
+        return False
+
+
+def _first_existing(pattern: str, base: Path) -> Path | None:
+    matches = sorted(base.glob(pattern))
+    return matches[0] if matches else None
 
 
 def read_mode_for_next_iter(prev_iter: int) -> str:
     meta_path = (
         evaluate_storyboards.RESULTS_DIR / f"iter{prev_iter}" / "intermediate" / "bestStoryboard_meta.json"
     )
+    if not _valid_json(meta_path):
+        raise FileNotFoundError(
+            f"Cannot read mode for iter{prev_iter + 1}: {meta_path} is missing or invalid. "
+            f"Please resume from iter{prev_iter} first."
+        )
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     mode = meta.get("mode_for_next_iter", "one")
     if mode not in {"one", "two", "three"}:
@@ -65,35 +128,157 @@ def read_mode_for_next_iter(prev_iter: int) -> str:
     return mode
 
 
+def character_stage_done() -> bool:
+    char_dir = create_character_description.RESULTS_DIR / "character"
+    return _nonempty_file(char_dir / "transcript.txt") and _valid_json(
+        char_dir / "character_description.json"
+    )
+
+
+def magi_stage_done() -> bool:
+    return _nonempty_file(magi.RESULTS_DIR / "character" / "transcript.txt")
+
+
+def character_description_done() -> bool:
+    return _valid_json(create_character_description.RESULTS_DIR / "character" / "character_description.json")
+
+
+def iter_dir(iteration: int) -> Path:
+    return evaluate_storyboards.RESULTS_DIR / f"iter{iteration}"
+
+
+def scripts_done(iteration: int) -> bool:
+    scripts_dir = iter_dir(iteration) / "scripts"
+    return all(_valid_json(scripts_dir / f"script_{i}.json") for i in range(1, create_script.NUM_SCRIPTS + 1))
+
+
+def script_eval_done(iteration: int) -> bool:
+    out_dir = iter_dir(iteration)
+    interim = out_dir / "intermediate"
+    required = [
+        out_dir / "bestScript.json",
+        interim / "feedback.json",
+        interim / "character.json",
+        *[interim / f"clip_{i}.json" for i in range(1, evaluate_scripts.NUM_CLIPS + 1)],
+    ]
+    return all(_valid_json(p) for p in required)
+
+
+def storyboard_image_path(iteration: int, sb_index: int) -> Path | None:
+    return _first_existing(f"storyboard_{sb_index}.*", iter_dir(iteration) / "storyboard")
+
+
+def storyboards_done(iteration: int) -> bool:
+    return all(
+        (p := storyboard_image_path(iteration, i)) is not None and _nonempty_file(p)
+        for i in range(generate_storyboard.NUM_STORYBOARDS)
+    )
+
+
+def best_storyboard_exists(iteration: int) -> bool:
+    p = _first_existing("bestStoryboard.*", iter_dir(iteration))
+    return p is not None and _nonempty_file(p)
+
+
+def storyboard_eval_done(iteration: int) -> bool:
+    interim = iter_dir(iteration) / "intermediate"
+    return (
+        best_storyboard_exists(iteration)
+        and _valid_json(interim / "bestStoryboard_meta.json")
+        and _valid_json(interim / "storyboard_feedback.json")
+    )
+
+
+def iteration_done(iteration: int) -> bool:
+    return (
+        scripts_done(iteration)
+        and script_eval_done(iteration)
+        and storyboards_done(iteration)
+        and storyboard_eval_done(iteration)
+    )
+
+
+def first_incomplete_iter(final_iter: int) -> int:
+    """Return the first iter in 0..final_iter that is not fully complete.
+    If all are complete, return final_iter + 1.
+    """
+    for it in range(final_iter + 1):
+        if not iteration_done(it):
+            return it
+    return final_iter + 1
+
+
+def run_stage(stage_name: str, done_fn, action):
+    if args.auto_resume and done_fn():
+        success(f"{stage_name} already complete — skipping")
+        return
+
+    section(stage_name)
+    action()
+
+    if args.auto_resume and not done_fn():
+        raise RuntimeError(
+            f"{stage_name} finished, but required output files are still missing or invalid. "
+            f"Check the log before resuming."
+        )
+
+
 def run_iteration(iteration: int, mode: str):
-    create_script.main(iteration=iteration, mode=mode)
-    evaluate_scripts.main(iteration=iteration)
-    generate_storyboard.main(iteration=iteration)
-    evaluate_storyboards.main(iteration=iteration)
+    run_stage(
+        f"ITER {iteration}  ·  create_script mode = {mode}",
+        lambda: scripts_done(iteration),
+        lambda: create_script.main(iteration=iteration, mode=mode),
+    )
+    run_stage(
+        f"ITER {iteration}  ·  evaluate_scripts",
+        lambda: script_eval_done(iteration),
+        lambda: evaluate_scripts.main(iteration=iteration),
+    )
+    run_stage(
+        f"ITER {iteration}  ·  generate_storyboard",
+        lambda: storyboards_done(iteration),
+        lambda: generate_storyboard.main(iteration=iteration),
+    )
+    run_stage(
+        f"ITER {iteration}  ·  evaluate_storyboards",
+        lambda: storyboard_eval_done(iteration),
+        lambda: evaluate_storyboards.main(iteration=iteration),
+    )
 
 
 def main():
     rule(
         f"[bold cyan]Manga → Storyboard pipeline  ·  "
-        f"target=[white]{args.target}[/]  ·  iterations=[white]{NUM_ITERATIONS}[/]"
+        f"target=[white]{args.target}[/]  ·  final_iter=[white]{FINAL_ITER}[/]  ·  "
+        f"auto_resume=[white]{args.auto_resume}[/]"
     )
 
-    section("STAGE 0  ·  MAGI transcript")
-    magi.main()
+    run_stage("STAGE 0  ·  MAGI transcript", magi_stage_done, magi.main)
+    run_stage(
+        "STAGE 0  ·  Character description",
+        character_description_done,
+        create_character_description.main,
+    )
 
-    section("STAGE 0  ·  Character description")
-    create_character_description.main()
+    if args.from_iter is not None:
+        start_iter = args.from_iter
+        info(f"Manual start: iter {start_iter}")
+    elif args.auto_resume:
+        start_iter = first_incomplete_iter(FINAL_ITER)
+        if start_iter <= FINAL_ITER:
+            info(f"Auto-resume detected first incomplete iter: iter {start_iter}")
+        else:
+            success(f"All iterations iter0~iter{FINAL_ITER} are already complete.")
+            return
+    else:
+        start_iter = 0
 
-    section("ITER 0")
-    run_iteration(0, "without")
-
-    for it in range(1, NUM_ITERATIONS):
-        mode = read_mode_for_next_iter(it - 1)
-        section(f"ITER {it}  ·  create_script mode = [magenta]{mode}[/]")
+    for it in range(start_iter, FINAL_ITER + 1):
+        mode = "without" if it == 0 else read_mode_for_next_iter(it - 1)
         run_iteration(it, mode)
 
     section("Pipeline complete")
-    success(f"All {NUM_ITERATIONS} iteration(s) finished.")
+    success(f"All iteration(s) through iter{FINAL_ITER} finished.")
 
 
 if __name__ == "__main__":
