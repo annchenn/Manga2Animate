@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 import log
 
@@ -25,10 +26,11 @@ class PolicyViolationError(RuntimeError):
 # ======================
 # CONFIG
 # ======================
-IMGBB_API_KEY     = os.getenv("IMGBB_API_KEY")
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
-ARK_API_KEY       = os.getenv("ARK_API_KEY")
-GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY")
+IMGBB_API_KEY         = os.getenv("IMGBB_API_KEY")
+DASHSCOPE_API_KEY     = os.getenv("DASHSCOPE_API_KEY")
+ARK_API_KEY           = os.getenv("ARK_API_KEY")
+GOOGLE_CLOUD_PROJECT  = os.getenv("GOOGLE_CLOUD_PROJECT", "")
+GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 VIDEO_GEN_MODEL     = os.getenv("VIDEO_GENERATION_MODEL", "dreamina-seedance-2-0-260128")
 GEMINI_REVIEW_MODEL = os.getenv("VIDEO_REVIEW_MODEL", "gemini-3.1-pro-preview")
@@ -185,33 +187,25 @@ def poll_task(model, task_id):
 # ======================
 # GEMINI EVALUATION
 # ======================
-def upload_to_gemini(client, file_path):
-    log.step(f"Uploading to Gemini: {os.path.basename(file_path)}")
-    gemini_file = client.files.upload(file=file_path)
-    while gemini_file.state.name == "PROCESSING":
-        log.info("Processing, waiting 5s...")
-        time.sleep(5)
-        gemini_file = client.files.get(name=gemini_file.name)
-    if gemini_file.state.name == "FAILED":
-        raise RuntimeError(f"Gemini file processing failed: {file_path}")
-    return gemini_file
-
-
 def evaluate_videos(client, user_prompt, video_a_path, video_b_path):
     eval_prompt = EVAL_FIRST_FILE.read_text(encoding="utf-8").replace("<user_prompt>", user_prompt)
 
-    file_a = upload_to_gemini(client, video_a_path)
-    file_b = upload_to_gemini(client, video_b_path)
-    contents = ["Video A:", file_a, "Video B:", file_b, eval_prompt]
+    video_a_bytes = Path(video_a_path).read_bytes()
+    video_b_bytes = Path(video_b_path).read_bytes()
+
+    contents = [types.Content(role="user", parts=[
+        types.Part.from_text(text="Video A:"),
+        types.Part.from_bytes(data=video_a_bytes, mime_type="video/mp4"),
+        types.Part.from_text(text="Video B:"),
+        types.Part.from_bytes(data=video_b_bytes, mime_type="video/mp4"),
+        types.Part.from_text(text=eval_prompt),
+    ])]
 
     log.step("Requesting Gemini evaluation...")
     resp = client.models.generate_content(
         model=GEMINI_REVIEW_MODEL,
         contents=contents,
     )
-
-    client.files.delete(name=file_a.name)
-    client.files.delete(name=file_b.name)
 
     return resp.text.strip(), eval_prompt
 
@@ -323,7 +317,11 @@ if __name__ == "__main__":
 
     prompt_template = PROMPT_FILE.read_text(encoding="utf-8")
     prompt          = prompt_template.replace("<script>", json.dumps(full_json, ensure_ascii=False))
-    gemini_client   = genai.Client(api_key=GEMINI_API_KEY)
+    gemini_client   = genai.Client(
+        vertexai=True,
+        project=GOOGLE_CLOUD_PROJECT,
+        location=GOOGLE_CLOUD_LOCATION,
+    )
 
     best_video_path = os.path.join(run_dir, "best_video.mp4")
 
