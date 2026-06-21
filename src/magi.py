@@ -71,7 +71,9 @@ def main():
             )
             parts.append(tmp_path.read_text(encoding="utf-8"))
 
-    out_path.write_text("".join(parts), encoding="utf-8")
+    header_line = " ### Transcript ###\n"
+    stripped = [p.replace(header_line, "") for p in parts]
+    out_path.write_text(header_line + "".join(stripped), encoding="utf-8")
     success(f"Transcript saved to {out_path}")
 
 

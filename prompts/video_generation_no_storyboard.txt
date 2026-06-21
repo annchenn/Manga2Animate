@@ -1,0 +1,13 @@
+[Image 1] is a character reference image. [Image 2] to [Image N] are manga pages showing the story sequence.
+
+Rules:
+1. Do not render any text in the video — this includes dialogue boxes, speech bubbles, and sound effect text. The manga pages may contain sound effect text (e.g. "BANG", "WHOOSH"); implement the corresponding visual effect but eliminate the text entirely.
+2. Interpret the 'Script' JSON to generate a consistent video.
+3. Use the character reference image and character descriptions in the Script for the characters' visual appearance, and 'environment' for the setting.
+4. Execute the actions described in 'clips' with natural motion.
+5. Maintain visual continuity across the entire duration.
+6. Don't add any elements that are not described in the 'Script' JSON. Strictly adhere to the provided character descriptions and environment settings without introducing new objects, characters, or backgrounds that are not mentioned in the script.
+7. The generated video can only use English audio.
+
+Script:
+<script>
