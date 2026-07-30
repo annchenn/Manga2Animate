@@ -1,14 +1,49 @@
+
+/*
+
+# ---- ALLOW: repo metadata ----
+!/.gitignore
+!/.env.example
+!/README.md
+!/requirements.txt
+
+# ---- ALLOW: source & prompts ----
+!/src/
+!/prompts/
+!/few-shot_example/
+
+# ---- ALLOW: legacy, kept for reference ----
+!/old_src/
+!/old_prompts/
+
+!/video/
+!/video-seedance/
+
+# =====================================================================
+# Junk that must stay ignored even inside the allowed folders above.
+# (These come last so they override the `!` rules.)
+# =====================================================================
+
 __pycache__/
-.claude/
-magi/
-Manga109_released_2023_12_07/
-results/
-venv/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+*.log
+
+# generated video outputs inside the allowed video folders
+/video/pipeline_generations/
+/video-seedance/pipeline_generations/
+/video-seedance/pipeline_generations_manga/
+/video-seedance/pipeline_generations_storyboard/
+
+# never commit real secrets or media
 .env
-target/
-video/pipeline_generations/
-video-seedance/pipeline_generations/
-video-seedance/pipeline_generations_manga/
-video-seedance/pipeline_generations_storyboard/
-run.sh
-memo.txt
+*.mp4
+*.mov
+*.avi
+*.webm
+*.ckpt
+*.safetensors
+*.pth
+*.pt
+*.bin
