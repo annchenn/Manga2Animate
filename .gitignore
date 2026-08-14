@@ -54,7 +54,11 @@ __pycache__/
 !/benchmark/
 !/benchmark/vistorybench/
 
-# the 9.1G dataset lives here; only these two are results we regenerate
+# vistorybench's own .gitignore blanket-excludes data/* (pretrain weights ~9G,
+# generated outputs, bench_results); dataset/ is re-included there instead --
+# a negation here can't win, since that nested .gitignore is read after this one.
+
+# these are results we regenerate locally, not source data -- keep ignored
 /benchmark/vistorybench/data/bench_results/ours/
 benchmark/vistorybench/data/outputs/ours/
 

@@ -1,6 +1,7 @@
 .DS_Store
 *.pyc
 data/*
+!/data/dataset/
 __pycache__
 .vscode
 .kilocode

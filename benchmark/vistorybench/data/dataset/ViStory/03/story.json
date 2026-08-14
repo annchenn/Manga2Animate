@@ -1,0 +1,194 @@
+{
+  "Story_type": {
+    "en": "Anime Action Fantasy",
+    "ch": "动漫动作奇幻"
+  },
+  "Characters": {
+    "monster1": {
+      "tag": "unrealistic_human",
+      "name_en": "monster1",
+      "name_ch": "怪物1",
+      "prompt_en": "Monstrous, hulking male goblin creature in a hunched, aggressive forward-leaning posture. He has long, straggly white hair falling in thin distinct clumps past the jawline; a gaunt, heavily lined purple face with sharp protruding cheekbones, a wide grimacing mouth revealing sharp, jagged teeth, and glowing bright yellow eyes without visible pupils. He has a prominent, crown-like beige bone structure and thick horns protruding from the forehead. Extremely muscular, veiny humanoid figure with dark purple skin, disproportionately long arms, and thick spikes protruding from the shoulders.",
+      "prompt_ch": "巨大且怪异的雄性哥布林生物，呈现弯腰前倾的攻击性姿态。他长着稀疏凌乱的白发，成簇地垂挂在下巴以下；紫色的脸庞消瘦且布满皱纹，颧骨高耸尖锐，咧开的大嘴露出参差不齐的锋利牙齿，明亮的黄色眼睛发光且没有明显的瞳孔。额头上突出着王冠状的米色骨骼结构和粗大的角。他是一个肌肉极其发达、青筋暴起的类人形象，拥有深紫色的皮肤、不成比例的超长手臂以及肩膀上突出的粗大尖刺。",
+      "num_of_appearances": 3
+    },
+    "boy1": {
+      "tag": "unrealistic_human",
+      "name_en": "boy1",
+      "name_ch": "男孩1",
+      "prompt_en": "Young adolescent male with short, extremely spiky bright white hair of jagged, varied lengths pointing outward in multiple directions, featuring a longer wispy tuft on the right side and uneven spiky bangs framing the forehead. He has youthful, sharp facial features, striking golden-yellow eyes with prominent white highlights and thin black pupils, and a slim, athletic adolescent figure. He wears a black long-sleeve shirt underneath a reddish-purple sleeveless tunic with a white collar and gold trim, dark blue pants, brown fingerless gloves, a brown belt, and brown boots.",
+      "prompt_ch": "年轻的青春期男性，留着极度尖刺状的亮白色短发，长度参差不齐且向多个方向张开，右侧有一簇较长的稀疏头发，额头前有不规则的尖刺刘海。他拥有年轻且轮廓分明的面部特征，醒目的金黄色眼睛有着明显的白色高光和细小的黑色瞳孔，身材苗条且具有运动感。他身穿黑色长袖衬衫，外搭带有白色领口和金色滚边的紫红色无袖束腰外衣，下穿深蓝色裤子，戴着棕色半指手套、棕色腰带，脚穿棕色靴子。",
+      "num_of_appearances": 6
+    }
+  },
+  "Shots": [
+    {
+      "index": 1,
+      "Plot Correspondence": {
+        "en": "The boy teleports in mid-air above the goblin, shouting to draw the hulking monster's attention.",
+        "ch": "男孩在半空中瞬间移动到哥布林上方，大喊着吸引这只巨大怪物的注意。"
+      },
+      "Setting Description": {
+        "en": "An abstract action space with heavy shadows and rough line textures. The background is composed of dark, vertical speed lines and glowing blue/white vertical streaks, creating a sense of rapid downward motion. No physical architecture is visible.",
+        "ch": "一个带有浓重阴影和粗糙线条纹理的抽象动作空间。背景由暗色的垂直速度线和发光的蓝白相间垂直条纹组成，营造出快速下降的动感。没有任何可见的物理建筑。"
+      },
+      "Shot Perspective Design": {
+        "en": "Low-angle shot",
+        "ch": "低角度镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "monster1",
+          "boy1"
+        ],
+        "ch": [
+          "怪物1",
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "In the extreme foreground on the left side of the screen, monster1's head is much larger and dominates the frame, facing the camera slightly and looking up towards screen right with a menacing expression. In the upper right quadrant, boy1 is suspended upside-down in mid-air, gripping a silver sword with his right hand. The sword's blade points diagonally downwards across boy1's body. He looks down toward monster1 with an intense gaze.",
+        "ch": "在画面左侧的极度前景中，怪物1的头部显得非常巨大并占据了整个画面，他略微面向镜头，表情狰狞地向画面右上方看去。在右上角，男孩1倒悬在半空中，右手紧握着一把银色长剑。剑刃斜向下穿过男孩1的身体。他正用强烈的目光俯视着怪物1。"
+      }
+    },
+    {
+      "index": 2,
+      "Plot Correspondence": {
+        "en": "As the boy descends, the goblin turns around in surprise. The boy readies himself, relying on his thousand years of accumulated knowledge and skill to make up for his current physical limitations.",
+        "ch": "当男孩下落时，哥布林惊讶地转过身。男孩做好了准备，依靠他积累了一千年的知识和技能来弥补他目前身体上的局限。"
+      },
+      "Setting Description": {
+        "en": "Daytime. A dusty, barren battleground setting. The ground on the left is cracked and bathed in a bright, blown-out white light source.",
+        "ch": "白天。尘土飞扬、荒芜的战场环境。左侧的地面破裂，沐浴在刺眼的白光中。"
+      },
+      "Shot Perspective Design": {
+        "en": "Medium depth-of-field over-the-shoulder shot",
+        "ch": "中等景深过肩镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "monster1",
+          "boy1"
+        ],
+        "ch": [
+          "怪物1",
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "In the extreme foreground on the right side of the screen, completely out of focus, boy1's brown-booted right leg descends diagonally, and a patch of his white spiky hair is visibly positioned at the bottom center-right. In the mid-ground on the left side of the screen, monster1 is hunched over, twisting his head to look back and up towards the right with wide, glowing eyes and his mouth open, revealing sharp, jagged teeth.",
+        "ch": "在画面右侧的极度前景中，男孩1穿着棕色靴子的右腿完全失焦并斜向下降，画面右下方中间隐约可见他的一簇白色尖刺头发。在画面左侧的中景处，怪物1弓着身子，扭头向右上方看去，他那发光的眼睛睁得很大，张开的嘴巴露出参差不齐的锋利牙齿。"
+      }
+    },
+    {
+      "index": 3,
+      "Plot Correspondence": {
+        "en": "The boy mentally focuses, channeling the immense power of gravity and condensing his mana into the blade of his sword.",
+        "ch": "男孩集中精神，引导巨大的重力，将魔力凝聚在他的剑刃上。"
+      },
+      "Setting Description": {
+        "en": "Abstract action setting. The entire background is filled with blindingly bright, vertical streaks of blue, purple, and white energy, completely obscuring any physical surroundings.",
+        "ch": "抽象动作背景。整个背景充满极其明亮的蓝色、紫色和白色垂直能量条纹，完全遮挡了任何物理环境。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "极近特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "boy1"
+        ],
+        "ch": [
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "A silver sword blade runs diagonally across the screen from top-left to bottom-right. It is engulfed in dark purple, shadow-like tendrils of mana and surrounded by an intense aura of glowing white and blue gravity magic.",
+        "ch": "一把银色剑刃从左上角到右下角对角线穿过画面。它被深紫色、暗影般的魔力触须吞噬，周围环绕着发光的白色和蓝色重力魔法的强烈光环。"
+      }
+    },
+    {
+      "index": 4,
+      "Plot Correspondence": {
+        "en": "Refusing to be defeated, the boy fiercely yells out, gripping the air itself as he readies his attack.",
+        "ch": "男孩拒绝被击败，发出凶猛的叫喊声，他仿佛抓住了空气，准备发动攻击。"
+      },
+      "Setting Description": {
+        "en": "Abstract action space. The background consists of a rough, textured gradient of pale blue and white with intense vertical speed lines, featuring dark grey and blue splotches that give the lines a heavy, rough texture.",
+        "ch": "抽象动作空间。背景由浅蓝色和白色的粗糙纹理渐变以及强烈的垂直速度线组成，带有深灰色和蓝色的斑点，使线条具有厚重的粗糙纹理。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot",
+        "ch": "特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "boy1"
+        ],
+        "ch": [
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "boy1 is positioned slightly to the right of the center. He is facing forward and looking slightly upward, his mouth wide open in a fierce yell. His golden eyes are wide and focused. His right arm is raised, with his fingertips visibly gripping the top edge of the frame on the upper right. At the bottom edge of the frame, a brown clothing strap from his outfit is visible.",
+        "ch": "男孩1位于画面中心偏右一点的位置。他正面向前方并略微向上看，嘴巴大张着，发出凶猛的叫喊声。他金色的眼睛睁得很大，目光集中。他举起右臂，指尖明显抓住了右上方的画面顶部边缘。在画面底部边缘，可以看到他衣服上的一条棕色带子。"
+      }
+    },
+    {
+      "index": 5,
+      "Plot Correspondence": {
+        "en": "With pure aggression and fury, the boy screams his absolute defiance at the monster beneath him.",
+        "ch": "带着纯粹的攻击性和愤怒，男孩向他身下的怪物尖叫出他绝对的反抗。"
+      },
+      "Setting Description": {
+        "en": "Abstract action space. The background features explicitly vertical speed lines and a vibrant gradient moving from deep purple at the bottom to bright white at the top, filled with tiny glowing particles emphasizing extreme velocity.",
+        "ch": "抽象动作空间。背景带有明显的垂直速度线，以及从底部的深紫色到顶部的亮白色的充满活力的渐变，充满了微小的发光粒子，强调了极高的速度。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot, tilted angle",
+        "ch": "极近特写镜头，倾斜角度"
+      },
+      "Characters Appearing": {
+        "en": [
+          "boy1"
+        ],
+        "ch": [
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "The frame focuses almost entirely on the right side of boy1's face, which occupies the right half of the screen and faces left. His golden eye is intensely sharp, and his mouth is open wide in a scream of extreme aggression and fury.",
+        "ch": "画面几乎完全集中在男孩1脸部的右侧，占据了屏幕的右半部分，面向左侧。他金色的眼睛极其锐利，嘴巴大张，发出极度带有攻击性和愤怒的尖叫。"
+      }
+    },
+    {
+      "index": 6,
+      "Plot Correspondence": {
+        "en": "The boy strikes down with overwhelming force, unleashing a colossal beam of energy that violently crushes the goblin into the earth.",
+        "ch": "男孩以压倒性的力量向下猛击，释放出巨大的能量光束，将哥布林猛烈地碾碎在地上。"
+      },
+      "Setting Description": {
+        "en": "A devastating impact zone. A massive vertical pillar of brilliant white and blue energy slices down the exact center of the screen. The bottom edge features multiple jagged, shattered brown rocks flying outward.",
+        "ch": "毁灭性的撞击区域。一道巨大的耀眼白色和蓝色能量垂直光柱切入画面正中心。底部边缘有多块锯齿状的碎裂棕色岩石向外飞溅。"
+      },
+      "Shot Perspective Design": {
+        "en": "Wide action shot",
+        "ch": "广角动作镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "monster1",
+          "boy1"
+        ],
+        "ch": [
+          "怪物1",
+          "男孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "A massive vertical energy beam completely bisects the scene. boy1 is positioned horizontally in mid-air directly in front of the beam, facing screen right. His eyes are closed tightly in exertion, his face straining from the impact, as he executes a fierce downward strike with a brown staff or polearm hilt. Directly beneath him, monster1 is violently crushed into the shattered ground, his purple limbs and head contorted and protruding from the left and right sides of the energy pillar's impact.",
+        "ch": "一道巨大的垂直能量光束将场景完全一分为二。男孩1水平悬在半空中，正好位于光束前方，面向画面右侧。他因为用力而紧闭双眼，面部因冲击而紧绷，正用一根棕色法杖或长柄武器的握柄执行凶猛的向下打击。就在他正下方，怪物1被猛烈地压在破碎的地面上，其紫色的四肢和头部扭曲着，从能量柱撞击点的左右两侧伸出。"
+      }
+    }
+  ]
+}

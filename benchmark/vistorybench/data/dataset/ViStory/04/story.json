@@ -1,0 +1,194 @@
+{
+  "Story_type": {
+    "en": "Sports Manga",
+    "ch": "体育漫画"
+  },
+  "Characters": {
+    "girl1": {
+      "tag": "unrealistic_human",
+      "name_en": "girl1",
+      "name_ch": "女孩1",
+      "prompt_en": "Teenage character with a slim, athletic build; Dark, messy hair with twin braids visible; Sharp grey eyes with an intense expression; Light-colored basketball jersey with the number '4' over a dark long-sleeve shirt; Dark athletic shorts; White slip-on shoes with dark toe caps and a strap across the top of the foot.",
+      "prompt_ch": "身材苗条、体格健壮的青少年；凌乱的深色头发，可见双马尾辫；锐利的灰色眼睛，眼神坚毅；浅色篮球球衣，印有数字“4”，内搭深色长袖衬衫；深色运动短裤；带深色鞋头和脚背绑带的白色一脚蹬运动鞋。",
+      "num_of_appearances": 6
+    },
+    "girl2": {
+      "tag": "unrealistic_human",
+      "name_en": "girl2",
+      "name_ch": "女孩2",
+      "prompt_en": "Teenage character with a slim build; Short dark hair tied back; Neutral facial features; Dark-colored basketball jersey with the number '1' over a light-colored long-sleeve shirt; Dark athletic shorts; Athletic footwear.",
+      "prompt_ch": "身材苗条的青少年；深色短发向后扎起；五官端正；深色篮球球衣，印有数字“1”，内搭浅色长袖衬衫；深色运动短裤；运动鞋。",
+      "num_of_appearances": 3
+    }
+  },
+  "Shots": [
+    {
+      "index": 1,
+      "Plot Correspondence": {
+        "en": "girl1 holds the basketball close to her face and intensely declares that it is their offense.",
+        "ch": "女孩1将篮球紧紧贴在脸上，并严肃地宣称这是她们的进攻回合。"
+      },
+      "Setting Description": {
+        "en": "Indeterminate time of day. The background is mostly blank white, while heavy shading and halftone patterns are applied directly to the character's face for dramatic effect.",
+        "ch": "时间不明。背景大部分为纯白色，而角色的脸上直接运用了浓重的阴影和网点图案，以呈现戏剧效果。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "极特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1"
+        ],
+        "ch": [
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is centered, facing the camera and looking directly at the camera, holding a basketball up close to her face, obscuring her mouth and nose. Her eyes are wide and intensely focused. Hoop earrings are visible on both ears.",
+        "ch": "女孩1居中，面向镜头并直视前方，将篮球举到靠近脸部的位置，遮住了她的嘴和鼻子。她睁大眼睛，眼神极度专注。双耳均可见环状耳环。"
+      }
+    },
+    {
+      "index": 2,
+      "Plot Correspondence": {
+        "en": "girl1 forcefully stomps her foot on the floor to initiate a rapid sprint.",
+        "ch": "女孩1用力将脚踩在球场地板上，以此开启一次快速冲刺。"
+      },
+      "Setting Description": {
+        "en": "Indoor basketball court. The wooden floor texture is clearly visible underneath the shoe.",
+        "ch": "室内篮球场。鞋子下方的木地板纹理清晰可见。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up low-angle shot",
+        "ch": "低角度极特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1"
+        ],
+        "ch": [
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1's right foot, wearing a white slip-on shoe with a dark toe cap and a top strap, stomps forcefully onto the court floor from screen right towards screen left, initiating a rapid sprint. A tiny sliver of girl1's hair and eye is barely visible at the very top edge of the frame.",
+        "ch": "女孩1的右脚穿着带有深色鞋头和脚背绑带的白色一脚蹬鞋，从画面右侧向左侧用力踩在球场地板上，准备快速冲刺。在画面的最顶部边缘隐约可见女孩1的一小撮头发和眼睛。"
+      }
+    },
+    {
+      "index": 3,
+      "Plot Correspondence": {
+        "en": "girl1 rapidly dribbles past girl2, leaving her staggering off-balance as a bystander watches in surprise.",
+        "ch": "女孩1快速运球越过女孩2，使她失去平衡而踉跄，一旁的旁观者惊讶地看着。"
+      },
+      "Setting Description": {
+        "en": "Indoor gym. Bright overhead lighting. A wall with four large sliding doors spans the background. On the far left, one bystander sits on the floor. On the far right, one bystander stands next to one metal wire storage cart containing approximately ten basketballs, with one small bag resting on the floor next to the standing bystander.",
+        "ch": "室内体育馆。明亮的顶灯。一堵带有四扇大推拉门的大墙横跨背景。在最左边，一名旁观者坐在地板上。在最右边，一名旁观者站在一个装有大约十个篮球的金属网状储物车旁，地上放着一个小包。"
+      },
+      "Shot Perspective Design": {
+        "en": "Wide shot",
+        "ch": "广角镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "girl2"
+        ],
+        "ch": [
+          "女孩1",
+          "女孩2"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 rapidly dribbles the basketball toward the left side of the screen, her body leaning forward aggressively in a sprint, displaying an intense, focused expression on her face. To her right, an opposing player, girl2, is left staggering off-balance with a shocked look. From the camera's perspective, the standing bystander on the far right observes with a surprised expression and a visible sweat drop.",
+        "ch": "女孩1向画面左侧快速运球，在冲刺中身体极具攻击性地前倾，脸上展现出强烈且专注的表情。在她的右侧，对手女孩2一脸震惊地踉跄着失去平衡。从镜头的视角看，最右边站立的旁观者表情惊讶地注视着，可见一滴汗珠。"
+      }
+    },
+    {
+      "index": 4,
+      "Plot Correspondence": {
+        "en": "girl1 jumps high to prepare for a shot, causing girl2 to stumble backward and fall onto the floor.",
+        "ch": "女孩1高高跃起准备投篮，致使女孩2向后踉跄并跌倒在地板上。"
+      },
+      "Setting Description": {
+        "en": "Daytime. Indoor basketball gym. The court has a wooden floor. The background shows a light-colored wall and double doors. A basketball hoop and backboard are partially visible in the top left corner. There is exactly one bystander sitting on the floor against the wall in the center-left background.",
+        "ch": "白天。室内篮球馆。球场铺着木地板。背景显示浅色墙壁和双开门。左上角可隐约看见一个篮球架和篮板。在背景中左侧的墙边坐着一名旁观者。"
+      },
+      "Shot Perspective Design": {
+        "en": "Wide shot",
+        "ch": "广角镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "girl2"
+        ],
+        "ch": [
+          "女孩1",
+          "女孩2"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is airborne on the left side of the screen, jumping high and facing screen right with the basketball raised, preparing for a shot. On the right side of the screen, girl2 is stumbling backward and falling onto the floor, accompanied by action lines indicating her loss of balance. A large basketball is partially visible in the immediate foreground at the bottom edge of the screen. A single bystander sits on the floor in the background, positioned between the two players.",
+        "ch": "女孩1在画面左侧腾空而起，高高跃起并面向画面右侧举起篮球准备投篮。在画面右侧，女孩2正向后退缩并跌倒在地，伴随着指示其失去平衡的动作线。在屏幕底部边缘的最近景处部分可见一个大篮球。一名旁观者坐在背景的地板上，位于两名球员之间。"
+      }
+    },
+    {
+      "index": 5,
+      "Plot Correspondence": {
+        "en": "girl1 soars upward toward the hoop in an impressive jump, while girl2 looks on in awe from below.",
+        "ch": "女孩1以惊人的跳跃向着篮筐腾空而起，而女孩2在下方敬畏地仰望。"
+      },
+      "Setting Description": {
+        "en": "Indoor basketball court. The basketball hoop and backboard are visible in the top center. The court's painted lines stretch across the floor. On the far left edge, one bystander stands holding a ball. In the right background, two bystanders sit on the floor, one bystander stands next to them, and one bystander is partially visible on the far right edge.",
+        "ch": "室内篮球场。篮球架和篮板在顶部中央可见。球场的划线在地面延伸。在最左边，一名旁观者拿着球站立。在右侧背景中，两名旁观者坐在地板上，一名旁观者站在他们旁边，最右侧边缘隐约可见另一名旁观者。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme low-angle wide shot, pushing the camera to look almost straight up at the character from below.",
+        "ch": "极低角度广角镜头，摄像机几乎从正下方仰视角色。"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "girl2"
+        ],
+        "ch": [
+          "女孩1",
+          "女孩2"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 dominates the left foreground, mid-air and soaring upward with her back arched, holding the basketball high above her head with both hands. Her twin braids are distinctly visible trailing behind her head. Below her on the court, girl2 looks up in awe.",
+        "ch": "女孩1占据左侧前景，在半空中向上腾跃，弓着背，双手将篮球高举过头顶。她的双马尾在脑后飘荡，清晰可见。在她下方的球场上，女孩2满脸敬畏地抬头仰望。"
+      }
+    },
+    {
+      "index": 6,
+      "Plot Correspondence": {
+        "en": "girl1 forcefully slams the basketball through the net, displaying intense physical exertion.",
+        "ch": "女孩1用力将篮球砸进篮网，展现出极度的爆发力与体力消耗。"
+      },
+      "Setting Description": {
+        "en": "Directly underneath a basketball hoop. The background is abstracted into dense, vertical speed lines that convey an intense downward momentum and power.",
+        "ch": "正对篮球架下方。背景被抽象化为密集的垂直速度线，传达出强烈的向下冲力与力量感。"
+      },
+      "Shot Perspective Design": {
+        "en": "Low-angle close-up shot",
+        "ch": "低角度特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1"
+        ],
+        "ch": [
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is positioned in the upper center of the frame, powerfully slamming the basketball down through the net towards the camera. Her knees are bent and drawn up towards her chest mid-air. Her face is heavily shadowed, with blank, glowing white eyes that emphasize her intense focus and physical exertion. A small earring is visible on her left ear. The scene is enveloped by dynamic vertical action lines.",
+        "ch": "女孩1位于画面的中上方，有力地将篮球向下穿过篮网砸向镜头。在半空中，她的双膝弯曲并向胸前收起。她的脸部被浓重的阴影覆盖，空白发光的白色眼睛强调了她极度的专注和体力消耗。她的左耳上可见一个小巧的耳环。场景被充满动态的垂直动作线所包围。"
+      }
+    }
+  ]
+}

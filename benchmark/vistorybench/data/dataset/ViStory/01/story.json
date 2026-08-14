@@ -1,0 +1,190 @@
+{
+  "Story_type": {
+    "en": "Fantasy Adventure Manga",
+    "ch": "奇幻冒险漫画"
+  },
+  "Characters": {
+    "elf1": {
+      "tag": "unrealistic_human",
+      "name_en": "elf1",
+      "name_ch": "精灵1",
+      "prompt_en": "Young adult female elf with an upright posture; long straight silver-white hair with long parted bangs framing the face; oval face with large purple eyes and prominent pointed elf ears; slender feminine figure; wears a dark purple high-collared under-tunic beneath a white/light-colored cape or tabard featuring intricate geometric patterns on the pink trim, paired with dark arm guards and leg coverings. She frequently carries a prominent dark, ornate wooden staff featuring a diamond-shaped crystal with a cross pattern, which is a major accessory in her design.",
+      "prompt_ch": "身姿挺拔的年轻女性精灵；留着长直的银白色头发和修饰脸型的长分开刘海；椭圆形的脸，紫色大眼睛，醒目的尖尖精灵耳；纤细柔美的身材；深紫色高领底衣外面穿着一件白色/浅色的披风或无袖外搭，其粉色饰边上有着复杂的几何图案，搭配深色护臂和护腿。她经常拿着一根引人注目的深色华丽木制法杖，上面镶嵌着一颗带十字图案的菱形水晶，这是她设计中的一个主要饰品。",
+      "num_of_appearances": 4
+    },
+    "bird1": {
+      "tag": "non_human",
+      "name_en": "bird1",
+      "name_ch": "鸟1",
+      "prompt_en": "Small, round bird-like creature; fluffy main body with lighter underbelly shading, very short stubby wings, a wide, short beak, and very short, stubby legs visible when standing; highly expressive face; wears a small, dark-colored scarf tied around its neck.",
+      "prompt_ch": "小巧圆润的鸟类生物；毛茸茸的主体，腹部阴影较浅，翅膀极短小，宽短的喙，站立时可见极短粗的腿；面部表情非常丰富；脖子上系着一条深色小围巾。",
+      "num_of_appearances": 4
+    }
+  },
+  "Shots": [
+    {
+      "index": 1,
+      "Plot Correspondence": {
+        "en": "The story opens with a view of an imposing architectural structure built into a rugged, steep rocky cliff face.",
+        "ch": "故事开始于一座建在崎岖陡峭岩壁上的宏伟建筑结构。"
+      },
+      "Setting Description": {
+        "en": "Daytime or heavily shaded area. A steep, textured rocky cliff face dominates the background, with a heavy dark screentone gradient at the very top edge of the panel. In the lower left foreground, exactly two clusters of dark palm leaves are visible. One long, rectangular stone structure with exactly four dark windows and one attached watchtower spans horizontally across the lower middle of the frame, built into the cliff side.",
+        "ch": "白天或阴影极重的区域。背景主要被陡峭、有质感的岩壁占据，画面顶部边缘带有浓重的深色网点渐变。在左下方前景中，恰好可见两簇深色的棕榈叶。一座带有恰好四扇暗窗和一座相连瞭望塔的长方形石质建筑横跨画面中下部，镶嵌在悬崖峭壁中。"
+      },
+      "Shot Perspective Design": {
+        "en": "Low-angle wide shot, slightly upward perspective",
+        "ch": "低角度广角镜头，略微向上的视角"
+      },
+      "Characters Appearing": {
+        "en": [],
+        "ch": []
+      },
+      "Static Shot Description": {
+        "en": "No characters are visible in the scene. The view focuses entirely on the imposing architecture and the rugged terrain.",
+        "ch": "场景中没有可见的人物。画面完全集中在宏伟的建筑和崎岖的地形上。"
+      }
+    },
+    {
+      "index": 2,
+      "Plot Correspondence": {
+        "en": "Hearing the sounds of swords clashing, elf1 realizes that a fight has already started and remains on high alert.",
+        "ch": "听到剑戟相交的声音，精灵1意识到战斗已经开始，并保持高度警惕。"
+      },
+      "Setting Description": {
+        "en": "Daytime. Dense, overgrown forest environment. Abundant leaves, several bamboo-like stalks, and tree branches fill the background and foreground, creating a secluded atmosphere. Exactly one prominent dark tree trunk stands directly behind the character.",
+        "ch": "白天。茂密丛生的森林环境。背景和前景充满了大量的树叶、几根类似竹子的茎秆和树枝，营造出一种与世隔绝的氛围。人物正后方恰好矗立着一根显眼的深色树干。"
+      },
+      "Shot Perspective Design": {
+        "en": "Medium shot, slightly low angle",
+        "ch": "中景，略微低角度"
+      },
+      "Characters Appearing": {
+        "en": [
+          "elf1"
+        ],
+        "ch": [
+          "精灵1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "elf1 is positioned in the lower center of the screen, facing forward but looking slightly upward toward screen right with a serious and alert expression. Her right arm is folded horizontally across her torso, while she firmly grasps one dark, ornate wooden staff in her left hand near her chest. The staff's crystal features a distinct diamond shape with a cross pattern. One small, sun-shaped companion creature is perched on her right shoulder.",
+        "ch": "精灵1位于画面下方中央，面向前方，但神情严肃警觉地略微向画面右上方看去。她的右臂水平折叠在躯干前，左手在胸前紧握一根深色的华丽木制法杖。法杖的水晶呈现出独特的菱形，带有十字图案。一个太阳形状的小伴生生物栖息在她的右肩上。"
+      }
+    },
+    {
+      "index": 3,
+      "Plot Correspondence": {
+        "en": "elf1 crouches quietly to observe bird1, who lies completely exhausted and panting heavily on the ground.",
+        "ch": "精灵1静静地蹲下观察鸟1，而鸟1则筋疲力尽地趴在地上大口喘气。"
+      },
+      "Setting Description": {
+        "en": "Daytime. An outdoor path or clearing. The right side of the frame is bordered by textured ground, with leaves hanging down from the top right corner. Exactly one low-lying leafy bush is located in the bottom right corner of the panel.",
+        "ch": "白天。户外的路径或空地。画面右侧边缘是带纹理的地面，树叶从右上角垂下。画面的右下角恰好有一丛低矮的多叶灌木。"
+      },
+      "Shot Perspective Design": {
+        "en": "Eye-level medium close-up",
+        "ch": "平视中特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "elf1",
+          "bird1"
+        ],
+        "ch": [
+          "精灵1",
+          "鸟1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "On the left side of the screen, elf1 is seen in profile, facing screen right. She is kneeling or crouching, with her bent leg clearly visible in the frame, and wears a neutral expression. On the right side, bird1 is positioned on the ground, facing forward with a wide-open beak, sweating and panting heavily. bird1 wears one dark-colored scarf tied around its neck.",
+        "ch": "在画面左侧，可以看到精灵1的侧面，面向画面右侧。她跪着或蹲着，弯曲的腿在画面中清晰可见，表情平静。在右侧，鸟1趴在地上，面向前方，鸟喙大张，汗流浃背，大口喘气。鸟1的脖子上系着一条深色的围巾。"
+      }
+    },
+    {
+      "index": 4,
+      "Plot Correspondence": {
+        "en": "With a gentle smile, elf1 praises the overworked bird1 for a job well done.",
+        "ch": "精灵1带着温柔的微笑，夸奖疲惫不堪的鸟1干得好。"
+      },
+      "Setting Description": {
+        "en": "Daytime. A lush forest setting. Several large palm leaves and dense foliage are visible in the background behind elf1. Several bamboo stalks are visible on the right side of the panel. The ground is flat and grassy.",
+        "ch": "白天。茂盛的森林环境。在精灵1身后的背景中可见几片大棕榈叶和茂密的树叶。画面右侧有几根竹秆。地面平坦长满草。"
+      },
+      "Shot Perspective Design": {
+        "en": "Medium two-shot",
+        "ch": "中景双人镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "bird1",
+          "elf1"
+        ],
+        "ch": [
+          "鸟1",
+          "精灵1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "bird1 is positioned on the left side of the screen, facing screen right, leaning forward with an exhausted expression, shivering. bird1 has its beak open, sweating with one distinct sweat drop, and exactly two visual puff clouds are floating beside it. bird1 wears one small dark-colored scarf around its neck. elf1 is positioned on the right side of the screen, crouching down and facing screen left towards bird1. She is holding one ornate wooden staff upright with both hands. The staff has a diamond-shaped crystal with a cross pattern. She displays a gentle smile.",
+        "ch": "鸟1位于画面左侧，面向画面右侧，身体前倾，表情疲惫，瑟瑟发抖。鸟1喙部微张，流着一滴清晰的汗水，旁边飘着恰好两团视觉效果的叹气云。鸟1脖子上系着一条深色小围巾。精灵1位于画面右侧，蹲下身子，面向画面左侧的鸟1。她双手笔直地拿着一根华丽的木制法杖。法杖上有一块带十字图案的菱形水晶。她展露着温柔的微笑。"
+      }
+    },
+    {
+      "index": 5,
+      "Plot Correspondence": {
+        "en": "bird1 laments that it is no longer as capable as it was in its youth, prompting elf1 to affectionately pet its head and prepare her next question.",
+        "ch": "鸟1感叹自己不像年轻时那样能干了，这让精灵1慈爱地抚摸它的头，并准备问下一个问题。"
+      },
+      "Setting Description": {
+        "en": "Daytime. The same dense forest area, with large palm fronds and bamboo leaves filling the upper background behind the characters.",
+        "ch": "白天。同一片茂密的森林区域，宽大的棕榈叶和竹叶填满了人物后方的上半部背景。"
+      },
+      "Shot Perspective Design": {
+        "en": "Medium close-up",
+        "ch": "中特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "bird1",
+          "elf1"
+        ],
+        "ch": [
+          "鸟1",
+          "精灵1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "On the left side of the screen, bird1 is sitting down, facing screen right with closed eyes and an open mouth, appearing completely drained, accompanied by two visual puff clouds and one sweat drop. On the right side, elf1 is crouching, facing screen left, with a warm smile. She extends her right hand to affectionately pet bird1's head, while holding her one tall wooden staff in her left hand. A speech bubble is present with a tail pointing towards the bottom left.",
+        "ch": "画面左侧，鸟1坐着，面向画面右侧，闭着眼睛，张着嘴巴，显得完全虚脱，伴有两个视觉叹气云和一滴汗水。右侧，精灵1蹲着，面向画面左侧，带着温暖的微笑。她伸出右手慈爱地抚摸鸟1的头，左手拿着她高大的木制法杖。画面中有一个对话框，尾部指向左下方。"
+      }
+    },
+    {
+      "index": 6,
+      "Plot Correspondence": {
+        "en": "Playfully interacting, elf1 gently taps bird1 on the head with her staff, asking if it can still keep going.",
+        "ch": "在嬉戏的互动中，精灵1用她的法杖轻轻敲了敲鸟1的头，问它是否还能继续前进。"
+      },
+      "Setting Description": {
+        "en": "Abstract space. A blank, white background that entirely focuses the attention on the interaction between the character and the object.",
+        "ch": "抽象空间。空白的纯白背景，将注意力完全集中在角色与物体的互动上。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "极特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "bird1"
+        ],
+        "ch": [
+          "鸟1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "On the left side of the screen, bird1's face is visible in partial profile, facing screen left with its eyes tightly squeezed shut. On the right side, the ornate head of elf1's staff—featuring a dark crescent shape and a distinct diamond-shaped crystal with a cross pattern—gently bonks the top of bird1's head from above. Visual impact lines radiate outward from the point of contact.",
+        "ch": "画面左侧，可见鸟1面部的半侧影，面向画面左侧，双眼紧闭。右侧，精灵1华丽的法杖头部——带有深色新月形和十字图案明显菱形水晶——从上方轻轻敲击鸟1的头顶。视觉上的冲击线从接触点向外辐射。"
+      }
+    }
+  ]
+}
