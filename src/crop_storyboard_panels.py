@@ -130,7 +130,7 @@ def main():
     parser.add_argument(
         "--results-root",
         type=Path,
-        default=BASE_DIR / "results",
+        default=BASE_DIR / "results_test",
         help="Results root directory (default: results/; e.g. results_test/)",
     )
     parser.add_argument(

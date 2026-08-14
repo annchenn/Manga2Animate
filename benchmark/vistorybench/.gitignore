@@ -1,0 +1,8 @@
+.DS_Store
+*.pyc
+data/*
+__pycache__
+.vscode
+.kilocode
+CLAUDE.md
+.env

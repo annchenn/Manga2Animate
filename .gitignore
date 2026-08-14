@@ -19,6 +19,9 @@
 !/video/
 !/video-seedance/
 
+# ---- ALLOW: ablation study code (results stay untracked, see below) ----
+# !/ablation/
+
 # =====================================================================
 # Junk that must stay ignored even inside the allowed folders above.
 # (These come last so they override the `!` rules.)
@@ -35,6 +38,33 @@ __pycache__/
 /video-seedance/pipeline_generations/
 /video-seedance/pipeline_generations_manga/
 /video-seedance/pipeline_generations_storyboard/
+
+# ablation: track the code / prompt variants / docs, not the generated results
+/ablation/_dryrun/
+/ablation/_shared/
+/ablation/summary*.json
+/ablation/summary*.md
+/ablation/*/*/
+!/ablation/*/prompts/
+
+# benchmark
+# vistorybench (vendored, upstream ViStoryBench/vistorybench @ b44ec91)
+# /benchmark must be un-ignored first: git never descends into a directory
+# excluded by `/*`, so the `!` rule below cannot match without this line.
+!/benchmark/
+!/benchmark/vistorybench/
+
+# the 9.1G dataset lives here; only these two are results we regenerate
+/benchmark/vistorybench/data/bench_results/ours/
+benchmark/vistorybench/data/outputs/ours/
+
+# upstream demo media (30M: 20M mp4 + 5M teasers), not needed to run the bench
+/benchmark/vistorybench/assets/
+
+# AdaFace is its own git repo (upstream submodule, 30M+ incl. a 17M gif).
+# Leave it out or `git add` turns it into a broken gitlink; clone it with:
+#   git -C benchmark/vistorybench submodule update --init
+/benchmark/vistorybench/vistorybench/bench/content/AdaFace/
 
 # never commit real secrets or media
 .env
