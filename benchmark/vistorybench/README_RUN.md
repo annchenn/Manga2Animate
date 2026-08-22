@@ -134,6 +134,51 @@ data/bench_results/<method>/<mode>/en/<timestamp>/
     └── diversity/scores.json          Inception Score
 ```
 
+## 5. AniMaker baseline 的 shot 圖是怎麼抽出來的
+
+我們自己的 storyboard 影片一支裡塞了 6 個 shot 首尾相接，所以 `../../src/crop_video_frames.py`
+要先偵測鏡頭切點才能切出 6 張代表幀。AniMaker（我們拿來對照的 baseline，上游
+[HITsz-TMG/Anim-Director](https://github.com/HITsz-TMG/Anim-Director)，論文
+[arXiv:2506.10540](https://arxiv.org/abs/2506.10540)）的產物結構不一樣：它的 pipeline
+本來就是**一個 shot 一支獨立影片**，所以完全不用切點偵測，每支影片直接抽一幀就是一個 shot。
+
+腳本：`src/export_animaker_shots.py`（沿用 AniMaker 自己的
+`export_vistory_shots.py::_extract_frame` 邏輯搬過來的，抽出的畫面逐 pixel 核對過完全一致）。
+
+**需要什麼資料**：只需要 AniMaker 該 story 選定（chosen）的 shot 影片檔案本身，檔名維持它原本
+的命名慣例 `scene_<scene_pos>_clip_<clip_id>.mp4`（AniMaker 產物路徑通常在它自己
+repo 的 `Pipeline/res/<story>/videos/chosen/` 底下），全部丟進同一個資料夾即可——**不需要**
+附帶 `script.json`/`pipeline.json` 或其他 pipeline 中間產物。shot 編號是從檔名裡的
+`(scene_pos, clip_id)` 排序後累加得出，不是讀 story.json。
+
+**抽哪一幀**：預設抽**中間幀**（`--frame mid`，也支援 `first`/`last`）——中間幀最能代表整支
+片段實際演出的畫面，能避開片頭/片尾轉場的過渡幀。
+
+**怎麼執行**：
+
+```bash
+python src/export_animaker_shots.py \
+    --videos-dir /path/to/animaker_chosen_clips \
+    --story 03
+```
+
+輸出跟第 2 節的 `shots/` 慣例完全相容：
+
+```
+data/outputs/anim_video/base/en/<timestamp>/03/shots/shot_1.png ... shot_6.png
+```
+
+`--method`（預設 `anim_video`）/`--mode`（預設 `base`）/`--language`（預設 `en`）/
+`--outputs-root`（預設本資料夾內的 `data/outputs`）都可以覆寫，用法跟第 2 節的
+`<method>/<mode>/<lang>/<timestamp>` 慣例一致。接下來跟第 3 節一樣：把這棵樹複製到實際跑
+`run_bench.sh` 的位置，再執行：
+
+```bash
+./run_bench.sh --method anim_video --mode base
+```
+
+## 6. `result.md` 欄位對照
+
 **metric 意義**（`result.md` 的欄位順序與論文表格一致）：
 
 | 論文欄位 | 對應的 key | 意義 |
