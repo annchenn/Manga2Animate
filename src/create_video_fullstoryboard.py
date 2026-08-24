@@ -8,11 +8,16 @@ import argparse
 import requests
 from datetime import datetime
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 import log
+from src.runs import resolve_run_dir
 
 load_dotenv()
 
@@ -250,10 +255,13 @@ def find_storyboard(iter_dir):
 
 
 def build_paths(args):
-    results_target_dir = PROJECT_ROOT / "results" / args.target
-    latest_iter_dir    = find_latest_iter_dir(results_target_dir)
+    results_target_dir = PROJECT_ROOT / args.results_root / args.target
+    # --time picks which pipeline run to read the storyboard from; default: the newest.
+    pipeline_run_dir   = resolve_run_dir(results_target_dir, args.time)
+    latest_iter_dir    = find_latest_iter_dir(pipeline_run_dir)
     storyboard_path    = find_storyboard(latest_iter_dir)
     input_json_path    = latest_iter_dir / "bestScript.json"
+    # Video output is not per-pipeline-run: <results-root>/<target>/video_fullstoryboard/<model>/run_*
     base_output_dir    = results_target_dir / "video_fullstoryboard" / args.model
 
     if not input_json_path.exists():
@@ -261,6 +269,7 @@ def build_paths(args):
 
     return {
         "target_name":      args.target,
+        "pipeline_run_dir": pipeline_run_dir,
         "storyboard_path":  storyboard_path,
         "input_json_path":  input_json_path,
         "base_output_dir":  base_output_dir,
@@ -272,6 +281,11 @@ def build_paths(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Full-storyboard video generation (single 15s video)")
     parser.add_argument("-t", "--target", required=True, help="Target folder name, e.g. lie_in_april1")
+    parser.add_argument("--results-root", default="results",
+                        help="Directory holding the results (default: results)")
+    parser.add_argument("--time", default=None,
+                        help="Pipeline run timestamp under <results-root>/<target>/ to take the storyboard "
+                             "from (default: the latest run)")
     parser.add_argument("-m", "--model",  required=False, default=_detect_model_type(VIDEO_GEN_MODEL),
                         choices=["wan", "seedance"], help="Video model to use")
     parser.add_argument("--auto-resume",  action="store_true",
@@ -292,6 +306,7 @@ if __name__ == "__main__":
     base_output_dir = paths["base_output_dir"]
 
     log.section(f"Full-Storyboard Video Pipeline — {model.upper()} — {target_name}")
+    log.info(f"pipeline run     : {paths['pipeline_run_dir'].name}")
     log.info(f"storyboard       : {storyboard_path}")
     log.info(f"generation model : {VIDEO_GEN_MODEL}")
     log.info(f"review model     : {GEMINI_REVIEW_MODEL}")

@@ -10,8 +10,9 @@ with two fixes on top of raw MAGI output:
      on each side of the crop. We trim both by scanning inward from each edge
      until we hit real content.
 
-Input : <results-root>/<target>/iter<N>/bestStoryboard.png  (latest iter by default)
-Output: <results-root>/<target>/iter<N>/storyboard_panels/
+Input : <results-root>/<target>/<run timestamp>/iter<N>/bestStoryboard.png
+        (latest run and latest iter by default; pick a run with --time)
+Output: <results-root>/<target>/<run timestamp>/iter<N>/storyboard_panels/
             panel1.png, panel2.png, ...   top-left -> bottom-right order, border trimmed
             overview.png                  storyboard with numbered boxes (for visual check)
 """
@@ -27,6 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.log import info, step, success, warn
+from src.runs import resolve_run_dir
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,13 +40,13 @@ FLAT_STD_THRESH = 15       # a row/col this uniform (any color) is treated as bo
 MAX_TRIM_FRAC = 0.08       # never trim more than this fraction of width/height per side
 
 
-def find_best_storyboard(target_dir: Path, iteration: int | None) -> Path:
+def find_best_storyboard(run_dir: Path, iteration: int | None) -> Path:
     """Return bestStoryboard.* from the given iter, or the latest iter that has one."""
     if iteration is not None:
-        iter_dirs = [target_dir / f"iter{iteration}"]
+        iter_dirs = [run_dir / f"iter{iteration}"]
     else:
         iter_dirs = sorted(
-            (d for d in target_dir.glob("iter*") if d.is_dir()),
+            (d for d in run_dir.glob("iter*") if d.is_dir()),
             key=lambda d: int(d.name[len("iter"):]),
             reverse=True,
         )
@@ -53,7 +55,7 @@ def find_best_storyboard(target_dir: Path, iteration: int | None) -> Path:
             p = d / f"bestStoryboard{ext}"
             if p.exists():
                 return p
-    raise FileNotFoundError(f"No bestStoryboard image found under {target_dir}")
+    raise FileNotFoundError(f"No bestStoryboard image found under {run_dir}")
 
 
 def read_image_as_np_array(image_path: Path) -> np.ndarray:
@@ -134,6 +136,11 @@ def main():
         help="Results root directory (default: results/; e.g. results_test/)",
     )
     parser.add_argument(
+        "--time",
+        default=None,
+        help="Pipeline run timestamp under <results-root>/<target>/ (default: the latest run)",
+    )
+    parser.add_argument(
         "--iter",
         type=int,
         default=None,
@@ -142,9 +149,11 @@ def main():
     args = parser.parse_args()
 
     target_dir = args.results_root / args.target
-    storyboard_path = find_best_storyboard(target_dir, args.iter)
+    run_dir = resolve_run_dir(target_dir, args.time)
+    storyboard_path = find_best_storyboard(run_dir, args.iter)
     out_dir = storyboard_path.parent / "storyboard_panels"
 
+    info(f"Run: {run_dir.name}")
     info(f"Storyboard: {storyboard_path}")
     info(f"Output: {out_dir}")
 

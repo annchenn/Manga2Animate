@@ -11,18 +11,30 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.log import init_log_file, rule, section, success, info, warn
+from src.run_config import CONFIG_FILENAME, collect_models, write_run_config
+from src.runs import latest_run_dir, new_run_id
 
 
 GCP_PROJECT_MAP = {
     "1": os.getenv("GOOGLE_CLOUD_PROJECT"),
     "2": os.getenv("GOOGLE_CLOUD_PROJECT2"),
-    "3": os.getenv("GOOGLD_CLOUD_PROJECT3"),
+    "3": os.getenv("GOOGLE_CLOUD_PROJECT3"),
 }
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the manga-to-storyboard pipeline.")
-    parser.add_argument("-t", "--target", required=True, help="Target name under target/")
+    parser.add_argument("-t", "--target", required=True, help="Target name under the target root")
+    parser.add_argument(
+        "--target-root",
+        default="target",
+        help="Directory holding the target cases (default: target)",
+    )
+    parser.add_argument(
+        "--results-root",
+        default="results",
+        help="Directory to write results into (default: results)",
+    )
     parser.add_argument(
         "-n",
         "--num-iterations",
@@ -43,6 +55,12 @@ def parse_args():
         help="Manually start from iter N. If omitted with --auto-resume, the first incomplete iter is detected automatically.",
     )
     parser.add_argument(
+        "--time",
+        default=None,
+        help="Run folder timestamp (e.g. 20260821_143000) under <results-root>/<target>/ to write into "
+             "or resume. Default: a new timestamp for a fresh run, the latest one when resuming.",
+    )
+    parser.add_argument(
         "--auto-resume",
         action="store_true",
         help="Skip completed stages and continue from the first incomplete iter/stage.",
@@ -52,16 +70,49 @@ def parse_args():
         "--project",
         choices=["1", "2", "3"],
         default="1",
-        help="Google Cloud project to use (1=GOOGLE_CLOUD_PROJECT, 2=GOOGLE_CLOUD_PROJECT2, 3=GOOGLD_CLOUD_PROJECT3); default 1",
+        help="Google Cloud project to use (1=GOOGLE_CLOUD_PROJECT, 2=GOOGLE_CLOUD_PROJECT2, 3=GOOGLE_CLOUD_PROJECT3); default 1",
     )
     return parser.parse_args()
 
 
 args = parse_args()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+TARGET_RESULTS_DIR = BASE_DIR / args.results_root / args.target
+
+
+def resolve_run_id() -> str:
+    """Pick the run folder this invocation writes into.
+
+    --time wins; otherwise a resuming run continues the newest existing folder and
+    a fresh run starts a new timestamp, so runs never overwrite each other.
+    """
+    if args.time:
+        return args.time
+    if args.auto_resume or args.from_iter is not None:
+        latest = latest_run_dir(TARGET_RESULTS_DIR)
+        if latest is not None:
+            return latest.name
+    return new_run_id()
+
+
+RUN_ID = resolve_run_id()
+RUN_DIR = TARGET_RESULTS_DIR / RUN_ID
+RUN_DIR.mkdir(parents=True, exist_ok=True)
+
+# Results written before the timestamped layout sit directly under the target folder;
+# they are not resumable in place, so say so instead of silently redoing the work.
+LEGACY_LAYOUT = (args.auto_resume or args.from_iter is not None) and not args.time and any(
+    (TARGET_RESULTS_DIR / name).exists() for name in ("character", "iter0")
+)
+
 os.environ["TARGET"] = args.target
+os.environ["TARGET_ROOT"] = args.target_root
+os.environ["RESULTS_ROOT"] = args.results_root
+os.environ["RUN_ID"] = RUN_ID
 os.environ["GOOGLE_CLOUD_PROJECT"] = GCP_PROJECT_MAP[args.project]
 
-init_log_file(Path("results") / args.target / "log.txt")
+init_log_file(RUN_DIR / "log.txt")
 
 # Import modules AFTER setting TARGET so module-level paths resolve correctly.
 import src.magi as magi
@@ -208,6 +259,22 @@ def first_incomplete_iter(final_iter: int) -> int:
     return final_iter + 1
 
 
+def record_run_config() -> None:
+    """Write the run's model config. Never fatal — a failed record is not worth
+    losing the run over."""
+    try:
+        path, previous = write_run_config(RUN_DIR, RUN_ID, args.target)
+        models = collect_models()
+        info(f"Config: {path.relative_to(BASE_DIR)}  (text={models['text']}, image={models['image']})")
+        if previous is not None and previous != models:
+            warn(
+                f"{CONFIG_FILENAME} already recorded different models for {RUN_ID}: {previous}. "
+                f"Results in this folder are a mix of both."
+            )
+    except Exception as e:
+        warn(f"Could not write run config: {e}")
+
+
 def run_stage(stage_name: str, done_fn, action):
     if args.auto_resume and done_fn():
         success(f"{stage_name} already complete — skipping")
@@ -249,9 +316,20 @@ def run_iteration(iteration: int, mode: str):
 def main():
     rule(
         f"[bold cyan]Manga → Storyboard pipeline  ·  "
-        f"target=[white]{args.target}[/]  ·  final_iter=[white]{FINAL_ITER}[/]  ·  "
-        f"auto_resume=[white]{args.auto_resume}[/]"
+        f"target=[white]{args.target}[/]  ·  run=[white]{RUN_ID}[/]  ·  "
+        f"final_iter=[white]{FINAL_ITER}[/]  ·  auto_resume=[white]{args.auto_resume}[/]"
     )
+
+    info(f"Run directory: {RUN_DIR}")
+    if LEGACY_LAYOUT:
+        warn(
+            f"{TARGET_RESULTS_DIR} holds results in the old flat layout (character/, iter*/). "
+            f"They are not resumed. Move them into a run folder to resume them, e.g. "
+            f"mkdir -p {TARGET_RESULTS_DIR}/<timestamp> && mv {TARGET_RESULTS_DIR}/{{character,iter*,log.txt}} "
+            f"{TARGET_RESULTS_DIR}/<timestamp>/"
+        )
+
+    record_run_config()
 
     run_stage("STAGE 0  ·  MAGI transcript", magi_stage_done, magi.main)
     run_stage(

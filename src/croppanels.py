@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
+from shapely.geometry import box
 from transformers import AutoModel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -83,7 +84,7 @@ def main():
 
     step("Detecting panels...")
     with torch.no_grad():
-        results = model.predict_detections_and_associations(gray_arrays)
+        results = model.predict_detections_and_associations(gray_arrays, panel_detection_threshold=0.2,)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     panel_idx = 1

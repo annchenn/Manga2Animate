@@ -98,13 +98,44 @@ python src/run_all.py -t <target> --from-iter 3 --to-iter 5
 # select a different GCP project (default: GOOGLE_CLOUD_PROJECT):
 python src/run_all.py -t <target> -p 2
 
-# 3. Generate a 15-second video from the best storyboard
+# write into / resume a specific run folder (default: newest when resuming, new one otherwise):
+python src/run_all.py -t <target> --auto-resume --time 20260821_143000
+
+# 3. Generate a 15-second video from the best storyboard of the latest run
 python src/create_video_fullstoryboard.py -t <target>
 ```
 
-When `--auto-resume` is enabled, `run_all.py` checks the existing output files under `results/<target>/` and skips completed stages automatically. For example, if `iter0` and `iter1` are complete but `iter2` is incomplete, the pipeline resumes from the missing part of `iter2` instead of starting over.
+When `--auto-resume` is enabled, `run_all.py` checks the existing output files in the run folder and skips completed stages automatically. For example, if `iter0` and `iter1` are complete but `iter2` is incomplete, the pipeline resumes from the missing part of `iter2` instead of starting over.
 
 All input files come from `target/<target>/` and all results land in `results/<target>/`.
+
+### Run folders (`--time`)
+
+Every pipeline run writes into its own timestamped folder, `results/<target>/<YYYYMMDD_HHMMSS>/`, so a new run never overwrites an earlier one.
+
+| Invocation | Run folder used |
+|---|---|
+| `run_all.py -t <target>` | a new timestamp |
+| `run_all.py -t <target> --auto-resume` | the newest existing one |
+| `run_all.py -t <target> --from-iter 3` | the newest existing one |
+| `run_all.py -t <target> --time 20260821_143000` | exactly that one (created if missing) |
+
+The tools that consume a finished run take the same `--time` flag and default to the newest run when it is omitted:
+
+```bash
+python src/crop_storyboard_panels.py -t <target> --time 20260821_143000
+python src/create_video_fullstoryboard.py -t <target> --time 20260821_143000
+python src/create_video.py -t <target> --time 20260821_143000
+```
+
+Video output is **not** per-run — it stays at `results/<target>/video_fullstoryboard/<model>/run_<timestamp>/` (and `results/<target>/video/<model>/run_<timestamp>/` for the per-panel pipeline), where `--auto-resume` resumes the newest `run_*` folder as before.
+
+Results produced before this layout sit directly under `results/<target>/` (`character/`, `iter*/`). They are not resumed in place; move them into a run folder first:
+
+```bash
+mkdir -p results/<target>/20260821_143000
+mv results/<target>/character results/<target>/iter* results/<target>/log.txt results/<target>/20260821_143000/
+```
 
 ### Panel cropping (`croppanels.py`)
 
@@ -119,12 +150,24 @@ Supports single or multi-page input:
 
 Panels from all pages are numbered sequentially (`panel1.png`, `panel2.png`, …) in `target/<target>/manga_panels/`.
 
+### Storyboard panel cropping (`crop_storyboard_panels.py`)
+
+Same MAGI detection applied to a generated `bestStoryboard.*`, with left-to-right / top-to-bottom ordering and border trimming. Output goes next to the storyboard it cropped, i.e. `results/<target>/<timestamp>/iter<N>/storyboard_panels/`. `--iter` picks the iteration (default: the latest one that has a storyboard), `--time` picks the run.
+
+`create_video.py` (per-panel video pipeline) reads those panels; if the run has no `storyboard_panels/` it falls back to `target/<target>/storyboard_panels/`.
+
+### Video frame extraction (`crop_video_frames.py`)
+
+Extracts one frame per shot from `results/<target>/video_fullstoryboard/seedance/<latest run>/best_video*.mp4` into `results/<target>/video_fullstoryboard/video_frames/`, and copies the shots into the ViStoryBench outputs tree. It reads only video paths, so it is unaffected by the run timestamp.
+
 ---
 
 ## Output Layout
 
 ```
 results/<target>/
+  <YYYYMMDD_HHMMSS>/                    # one pipeline run (run_all.py)
+    log.txt
     character/
         transcript.txt
         character_description.json
@@ -145,15 +188,21 @@ results/<target>/
             sb_compare_diff_new<A>_vs_prev.json   # iter 1+ only
             bestStoryboard_meta.json    # {"branch", "winner_idx", "mode_for_next_iter"}
             storyboard_feedback.json    # {"feedbacks": [...]}  length 1-3
+        storyboard_panels/              # crop_storyboard_panels.py
+            panel{1..6}.png
+            overview.png
 
-    video_fullstoryboard/
-        <model>/                        # "seedance" or "wan"
-            run_<YYYYMMDD_HHMMSS>/
-                tasks_info.json
-                candidate_1.mp4
-                candidate_2.mp4
-                gemini_eval_response.txt
-                best_video.mp4
+  video_fullstoryboard/                 # shared across runs, not per-timestamp
+    <model>/                            # "seedance" or "wan"
+        run_<YYYYMMDD_HHMMSS>/
+            tasks_info.json
+            candidate_1.mp4
+            candidate_2.mp4
+            gemini_eval_response.txt
+            best_video.mp4
+    video_frames/                       # crop_video_frames.py
+        shot_{1..6}.png
+        overview.png
 ```
 
 `branch` ∈ `{iter0_clean, iter0_cyclic, iterN_carry, iterN_1winner, iterN_2winner,
@@ -216,11 +265,13 @@ python src/create_video_fullstoryboard.py -t <target> -m seedance
 python src/create_video_fullstoryboard.py -t <target> -m wan
 # resume from an existing run (re-polls tasks or skips straight to evaluation):
 python src/create_video_fullstoryboard.py -t <target> --auto-resume
+# take the storyboard from one specific pipeline run (default: the latest one):
+python src/create_video_fullstoryboard.py -t <target> --time 20260821_143000
 ```
 
 ### How it works
 
-1. Finds the latest `results/<target>/iter<N>/bestStoryboard.*` and `bestScript.json`
+1. Finds `bestStoryboard.*` and `bestScript.json` in the latest `iter<N>` of the pipeline run selected by `--time` (default: the newest `results/<target>/<timestamp>/`)
 2. Builds a video prompt from the full script JSON
 3. Uploads the storyboard image to ImgBB as first-frame reference
 4. Submits **two** 15s generation tasks (A & B) to the chosen API
@@ -232,7 +283,7 @@ If a task fails with a policy/copyright violation the run is marked `"status": "
 ### Video output layout
 
 ```
-results/<target>/
+results/<target>/                         # note: outside the per-run <timestamp>/ folder
     video_fullstoryboard/
         <model>/                          # "wan" or "seedance"
             run_<YYYYMMDD_HHMMSS>/
@@ -253,7 +304,7 @@ flowchart TD
         direction LR
         MG["magi.py"] -->|transcript.txt| CHAR
         CD["create_character_description.py"] -->|character_description.json| CHAR
-        CHAR(["results/&lt;target&gt;/character/"])
+        CHAR(["results/&lt;target&gt;/&lt;timestamp&gt;/character/"])
     end
 
     PRE --> IT0["iter 0"]

@@ -9,11 +9,16 @@ import subprocess
 import requests
 from datetime import datetime
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from dotenv import load_dotenv
 from google import genai
 from PIL import Image
 
 import log
+from src.runs import resolve_run_dir
 
 load_dotenv()
 
@@ -298,12 +303,19 @@ def find_latest_iter_dir(results_target_dir):
 
 
 def build_paths(args):
-    target_dir            = PROJECT_ROOT / "target" / args.target
+    target_dir            = PROJECT_ROOT / args.target_root / args.target
     manga_panels_dir      = target_dir / "manga_panels"
-    storyboard_panels_dir = target_dir / "storyboard_panels"
-    results_target_dir    = PROJECT_ROOT / "results" / args.target
-    latest_iter_dir       = find_latest_iter_dir(results_target_dir)
+    results_target_dir    = PROJECT_ROOT / args.results_root / args.target
+    # --time picks which pipeline run to read the script/panels from; default: the newest.
+    pipeline_run_dir      = resolve_run_dir(results_target_dir, args.time)
+    latest_iter_dir       = find_latest_iter_dir(pipeline_run_dir)
     input_json_path       = latest_iter_dir / "bestScript.json"
+    # crop_storyboard_panels.py writes next to the storyboard it cropped; older runs
+    # kept hand-made panels under the target folder.
+    storyboard_panels_dir = latest_iter_dir / "storyboard_panels"
+    if not storyboard_panels_dir.exists():
+        storyboard_panels_dir = target_dir / "storyboard_panels"
+    # Video output is not per-pipeline-run: <results-root>/<target>/video/<model>/run_*
     base_output_dir       = results_target_dir / "video" / args.model
 
     for path, label in [
@@ -317,6 +329,7 @@ def build_paths(args):
 
     return {
         "target_name":           args.target,
+        "pipeline_run_dir":      pipeline_run_dir,
         "manga_panels_dir":      manga_panels_dir,
         "storyboard_panels_dir": storyboard_panels_dir,
         "input_json_path":       input_json_path,
@@ -329,6 +342,11 @@ def build_paths(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Manga-to-video pipeline (wan or seedance)")
     parser.add_argument("-t", "--target",    required=True, help="Target folder name, e.g. lie_in_april1")
+    parser.add_argument("--target-root",     default="target", help="Directory holding the target cases (default: target)")
+    parser.add_argument("--results-root",    default="results", help="Directory holding the results (default: results)")
+    parser.add_argument("--time",            default=None,
+                        help="Pipeline run timestamp under <results-root>/<target>/ to take bestScript.json "
+                             "and storyboard panels from (default: the latest run)")
     parser.add_argument("-m", "--model",     required=False, default=_detect_model_type(VIDEO_GEN_MODEL), choices=["wan", "seedance"], help="Video model to use (default: auto-detected from VIDEO_GENERATION_MODEL in .env)")
     parser.add_argument("--panel-count",     type=int, default=PANEL_COUNT)
     parser.add_argument("--auto-resume",     action="store_true",
@@ -350,6 +368,8 @@ if __name__ == "__main__":
     base_output_dir       = paths["base_output_dir"]
 
     log.section(f"Video Pipeline — {model.upper()} — {target_name}")
+    log.info(f"pipeline run     : {paths['pipeline_run_dir'].name}")
+    log.info(f"panels           : {storyboard_panels_dir}")
     log.info(f"generation model : {VIDEO_GEN_MODEL}")
     log.info(f"review model     : {GEMINI_REVIEW_MODEL}")
     log.info(f"script           : {input_json_path}")

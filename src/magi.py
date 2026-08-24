@@ -8,12 +8,14 @@ from PIL import Image
 from transformers import AutoModel
 
 from src.log import info, status, success
+from src.runs import results_dir_from_env
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 _target = os.environ.get("TARGET", "")
-TARGET_DIR = BASE_DIR / "target" / _target if _target else BASE_DIR / "target"
-RESULTS_DIR = BASE_DIR / "results" / _target if _target else BASE_DIR / "results"
+_target_root = os.environ.get("TARGET_ROOT", "target")
+TARGET_DIR = BASE_DIR / _target_root / _target if _target else BASE_DIR / _target_root
+RESULTS_DIR = results_dir_from_env(BASE_DIR)  # <results-root>/<target>/<run timestamp>
 OUTPUT_DIR = RESULTS_DIR / "character"
 
 EXTS = {".png", ".jpg", ".jpeg", ".webp"}

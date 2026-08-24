@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, status, step, subsection, success, warn
+from src.runs import results_dir_from_env
 from src.utils import with_retry
 
 load_dotenv()
@@ -14,11 +15,12 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 FEW_SHOT_DIR = BASE_DIR / "few-shot_example"
 _target = os.environ.get("TARGET", "")
-TARGET_DIR = BASE_DIR / "target" / _target if _target else BASE_DIR / "target"
-RESULTS_DIR = BASE_DIR / "results" / _target if _target else BASE_DIR / "results"
+_target_root = os.environ.get("TARGET_ROOT", "target")
+TARGET_DIR = BASE_DIR / _target_root / _target if _target else BASE_DIR / _target_root
+RESULTS_DIR = results_dir_from_env(BASE_DIR)  # <results-root>/<target>/<run timestamp>
 PROMPT_FILE = BASE_DIR / "prompts" / "create_storyboard.txt"
 
-MODEL = os.environ.get("IMAGE_MODEL", "gemini-3-pro-image-preview")
+MODEL = os.environ.get("IMAGE_MODEL", "gemini-3-pro-image")
 NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 EXP1 = int(os.environ.get("EXP1", "0"))
