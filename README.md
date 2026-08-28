@@ -25,9 +25,17 @@ cp .env.example .env
 ```
 
 ```env
-# Google Cloud (required for all Gemini calls via Vertex AI)
+# Team default: Vertex AI — needs a GCP project with billing enabled and a
+# service account with the "Vertex AI User" role (or
+# `gcloud auth application-default login`, see step 2 above). Every Gemini call
+# in the script/storyboard pipeline uses this whenever it's set.
 GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
 GOOGLE_CLOUD_LOCATION=global
+
+# Fallback (only used when GOOGLE_CLOUD_PROJECT above is empty): a plain API key
+# from https://aistudio.google.com/apikey — no GCP IAM/service-account/billing
+# setup needed, useful if you don't have GCP project access.
+GEMINI_API_KEY=<your-gemini-api-key>
 
 # Models
 TEXT_MODEL=gemini-3.1-pro-preview
@@ -44,12 +52,93 @@ EXP1=0
 EXP2=3
 
 # Video generation API keys
-ARK_API_KEY=<your-ark-key>       # required for Seedance
-IMGBB_API_KEY=<your-imgbb-key>   # required for both models (first-frame hosting)
-# DASHSCOPE_API_KEY=              # required only if using WAN (wan2.7-i2v)
+ARK_API_KEY=<your-ark-key>       # required for Seedance; Volcengine/ByteDance Ark console: https://console.volcengine.com/ark
+IMGBB_API_KEY=<your-imgbb-key>   # required for both models (first-frame hosting); https://api.imgbb.com/
+# DASHSCOPE_API_KEY=              # required only if using WAN (wan2.7-i2v); Alibaba Cloud DashScope console: https://dashscope.console.aliyun.com/
+
+# Storyboard backend (default: gemini; see "FLUX.2 storyboard backend" below)
+STORYBOARD_BACKEND=gemini
 ```
 
 See [Hyperparameters](#hyperparameters-env) for what each variable means.
+
+### 3b. (Optional) FLUX.2 storyboard backend
+
+The default backend (`STORYBOARD_BACKEND=gemini`) uses Gemini's native image
+generation for the whole 3×2 grid in one call. The `flux2` backend instead
+generates each panel individually with FLUX.2-dev (3 seeded candidates per panel
+by default), picks the best one per panel with a Gemini reviewer call (one
+candidate scored per call, then compared in Python — not one call comparing all
+candidates at once), then composes the grid locally. Needs a separate conda env
+(FLUX.2-dev's `diffusers` dependency stack is incompatible with this repo's own
+`transformers==4.38.0` pin used by MAGI):
+
+```bash
+bash setup_flux2_env.sh
+```
+
+Then run the pipeline with:
+
+```bash
+python src/run_all.py -t <target> --storyboard-backend flux2
+```
+
+See `.env.example` for the `FLUX2_*` tuning knobs (model id, resolution, steps,
+guidance scale, number of variants per panel, HF token resolution). Note: unlike
+the gemini backend, the flux2 backend never uses the few-shot examples in
+`few-shot_example/` for either script generation or storyboard generation.
+
+**Requirements before your first flux2 run:**
+
+- **A CUDA GPU.** Unlike MAGI's panel detection (which falls back to CPU),
+  `src/flux2_worker.py` has no CPU path — it needs an actual GPU.
+- **~95GB of free disk** in the HF cache directory (`HF_HOME`, or
+  `FLUX2_HF_HOME` to point the worker subprocess at a separate cache) — FLUX.2-dev
+  is ~95GB in bf16. Budget a multi-hour download on first run
+  (`FLUX2_WORKER_TIMEOUT` defaults generously for this).
+- **A HuggingFace token from an account that accepted the gated license.**
+  FLUX.2-dev is a gated repo: visit
+  [huggingface.co/black-forest-labs/FLUX.2-dev](https://huggingface.co/black-forest-labs/FLUX.2-dev)
+  while logged in and click "Agree", then either run `huggingface-cli login`,
+  set `HF_TOKEN` directly, or point `FLUX2_HF_TOKEN_FILE` at a token file
+  (defaults to `~/.cache/huggingface/token`).
+- **GPU memory strategy** — `FLUX2_CPU_OFFLOAD` (default `true`) streams weights
+  CPU↔GPU on demand: works on smaller GPUs, ~1-2 min/image. Setting it to
+  `false` loads the whole model onto the GPU at once (faster per image, no
+  transfer overhead), but the weights alone need ~95GB — confirmed to OOM even
+  on a ~97GB card, so only try `false` if your GPU has real headroom above
+  that.
+
+**Known limitation — composition/pose fidelity on extreme panels.** Every panel
+is generated at a fixed 768×640 landscape canvas (`FLUX2_PANEL_WIDTH`/
+`FLUX2_PANEL_HEIGHT`) regardless of the source manga panel's own aspect ratio,
+and `Flux2Pipeline` has no `strength`/denoising-strength parameter — the input
+panel image is a loose conditioning signal, not a partial-denoise starting
+point. On very tall/narrow or extreme-camera-angle source panels, FLUX.2 can
+drift toward flatter, more centered compositions than the original. After a
+run, check `<run>/iter<N>/storyboard/candidates/panel_review_*.json` for low
+"Manga/Script Follow" scores — that's the reviewer independently flagging
+panels worth a manual look or a rerun with more variants.
+
+**Known limitation — on-screen text/speech-bubble/SFX suppression is not a hard
+guarantee.** `Flux2Pipeline` has no `negative_prompt` — every instruction is
+positive conditioning, so "don't draw text" is a request, not a constraint. The
+flux2-only script prompts (`create_script_without_feedback_no_fewshot.txt` /
+`create_script_with_one_feedback_flux2.txt`) keep spoken dialogue out of
+`description`/`environment` entirely (it lives in its own structured
+`dialogue` field instead, ignored by `flux2_bridge.py`'s image prompt), and
+explicitly ban describing on-screen SFX lettering/onomatopoeia as a visual
+element — including paraphrases of it, not just the literal words. A second,
+independent layer (`flux2_bridge.py::_strip_dialogue()`'s regexes) scrubs
+anything that leaks through anyway. Both layers were tightened multiple times
+against real failures found on live runs (quoted dialogue with internal
+apostrophes, possessive `'s`, multi-line "Character[id]: '...'" speaker
+chains, "graphical letter-like strokes" as an SFX paraphrase) and a full
+DualJustice1/goblin run currently comes back clean — but neither layer is a
+mathematical guarantee against a new phrasing Gemini hasn't tried yet. If a
+run comes back with unwanted text, check the clip's `environment`/`description`
+in `<run>/iter<N>/bestScript.json` first — a new paraphrase there is the most
+likely cause, fixable by extending the same two rules that already ban this.
 
 ### 4. Prepare a target
 
@@ -58,11 +147,19 @@ For each target, create a directory under `target/<name>/` containing:
 ```
 target/<name>/
     manga_page.{png|jpg}              # full manga page  (or manga_page1.*, manga_page2.*, ...)
-    ref.{png|jpg}                     # character reference sheet
+    ref.{png|jpg}                     # character reference sheet (legacy, single composite image)
+    characters/                       # NEW, optional alternative to ref.* above
+        char1.png                     # one clean reference image per character
+        char2.png                     # (id matches Character[id] used everywhere else)
+        ...
     manga_panels/                     # auto-generated by croppanels.py (see below)
         panel1.png
         ...
 ```
+
+`characters/char{id}.*` takes priority over `ref.*` when both are present; when
+`characters/` is absent (as for all existing targets), the pipeline falls back to
+`ref.*` unchanged. This applies to both storyboard backends.
 
 ---
 
@@ -97,6 +194,9 @@ python src/run_all.py -t <target> --from-iter 3 --to-iter 5
 
 # select a different GCP project (default: GOOGLE_CLOUD_PROJECT):
 python src/run_all.py -t <target> -p 2
+
+# use the flux2 storyboard backend instead of gemini (needs `bash setup_flux2_env.sh` first):
+python src/run_all.py -t <target> --storyboard-backend flux2
 
 # write into / resume a specific run folder (default: newest when resuming, new one otherwise):
 python src/run_all.py -t <target> --auto-resume --time 20260821_143000
@@ -257,6 +357,10 @@ prompt for the next `create_script.py` invocation.
 ## Video Generation
 
 After `run_all.py` completes, generate a single 15-second video from the best storyboard:
+
+> The top-level `video/` and `video-seedance/` directories are earlier, separate
+> experiments — the currently-documented pipeline below (`create_video_fullstoryboard.py`
+> / `create_video.py`) does not depend on them.
 
 ```bash
 python src/create_video_fullstoryboard.py -t <target>

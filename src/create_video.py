@@ -107,9 +107,19 @@ def calculate_optimal_duration(panel_image_path, total_panels_area, clip_data, m
         visual_bonus = 2.0
         area_ratio = 0
 
-    description = clip_data.get("description", "")
-    dialogues = re.findall(r"Dialogue\([^)]+\):\s*'([^']+)'", description)
-    total_words = sum(len(d.split()) for d in dialogues)
+    # flux2-backend scripts (create_script_with_one_feedback_flux2.txt /
+    # _without_feedback_no_fewshot.txt) carry a structured "dialogue" array
+    # instead of embedding "Dialogue(Character[N]): '...'" text inside
+    # "description" — read from there first when present; gemini-backend
+    # scripts have no "dialogue" key at all, so they fall through to the
+    # original regex extraction unchanged.
+    dialogue_field = clip_data.get("dialogue")
+    if isinstance(dialogue_field, list) and dialogue_field:
+        total_words = sum(len(str(d.get("text", "")).split()) for d in dialogue_field if isinstance(d, dict))
+    else:
+        description = clip_data.get("description", "")
+        dialogues = re.findall(r"Dialogue\([^)]+\):\s*'([^']+)'", description)
+        total_words = sum(len(d.split()) for d in dialogues)
     text_bonus = total_words / 10.0
 
     base_time = 1.0

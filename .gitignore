@@ -6,6 +6,7 @@
 !/.env.example
 !/README.md
 !/requirements.txt
+!/setup_flux2_env.sh
 
 # ---- ALLOW: source & prompts ----
 !/src/

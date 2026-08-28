@@ -3,12 +3,11 @@ import os
 import re
 import sys
 from pathlib import Path
-from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, step, subsection, success, warn
 from src.runs import results_dir_from_env
-from src.utils import with_retry
+from src.utils import find_character_ref_images, make_genai_client, with_retry
 
 load_dotenv()
 
@@ -27,18 +26,7 @@ NUM_SCRIPTS = int(os.environ.get("NUM_SCRIPTS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 MODEL = os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview")
 
-client = genai.Client(
-    vertexai=True,
-    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
-
-
-def find_image(directory: Path, stem: str) -> Path:
-    matches = list(directory.glob(f"{stem}.*"))
-    if not matches:
-        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
-    return matches[0]
+client = make_genai_client()
 
 
 def iter_dir(iteration: int) -> Path:
@@ -85,14 +73,15 @@ def evaluate_character(all_scripts: list[dict]) -> str:
         panel_path = PANELS_DIR / f"panel{clip_id}.png"
         panel_parts.append(types.Part.from_bytes(data=panel_path.read_bytes(), mime_type="image/png"))
 
-    ref_path = find_image(TARGET_DIR, "ref")
-    ref_mime = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
-    ref_part = types.Part.from_bytes(data=ref_path.read_bytes(), mime_type=ref_mime)
+    ref_parts = []
+    for _, ref_path in find_character_ref_images(TARGET_DIR):
+        ref_mime = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+        ref_parts.append(types.Part.from_bytes(data=ref_path.read_bytes(), mime_type=ref_mime))
 
     return with_retry(
         lambda: client.models.generate_content(
             model=MODEL,
-            contents=[*panel_parts, ref_part, filled_prompt],
+            contents=[*panel_parts, *ref_parts, filled_prompt],
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
             ),
@@ -114,10 +103,19 @@ def evaluate_clip(clip_id: int, all_scripts: list[dict]) -> str:
         clips = all_scripts[i].get("clips", [])
         if clip_id - 1 < len(clips):
             clip = clips[clip_id - 1]
-            payload[f"Script {i + 1}"] = {
+            entry = {
                 "environment": clip.get("environment", ""),
                 "description": clip.get("description", ""),
             }
+            # flux2-backend scripts keep dialogue in its own field (see
+            # create_script_with_one_feedback_flux2.txt / _no_fewshot.txt)
+            # instead of inline inside "description" — pass it through so the
+            # "Dialogue Speaker Assignment" criterion in clip_reviewer.txt still
+            # has something to compare. gemini-backend clips never have this
+            # key, so this is a no-op for them (identical payload to before).
+            if "dialogue" in clip:
+                entry["dialogue"] = clip["dialogue"]
+            payload[f"Script {i + 1}"] = entry
         else:
             payload[f"Script {i + 1}"] = "(clip not present in this script)"
 

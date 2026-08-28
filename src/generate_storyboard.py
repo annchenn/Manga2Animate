@@ -2,12 +2,11 @@ import json
 import mimetypes
 import os
 from pathlib import Path
-from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, status, step, subsection, success, warn
 from src.runs import results_dir_from_env
-from src.utils import with_retry
+from src.utils import find_character_ref_images, make_genai_client, with_retry
 
 load_dotenv()
 
@@ -25,12 +24,9 @@ NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 EXP1 = int(os.environ.get("EXP1", "0"))
 EXP2 = int(os.environ.get("EXP2", "3"))
+STORYBOARD_BACKEND = os.environ.get("STORYBOARD_BACKEND", "gemini")
 
-client = genai.Client(
-    vertexai=True,
-    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
+client = make_genai_client()
 
 
 def find_image(directory: Path, stem: str) -> Path:
@@ -69,13 +65,13 @@ def generate_one(best_script: dict, iteration: int, sb_index: int):
 
     image_paths = [
         *(TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)),
-        find_image(TARGET_DIR, "ref"),
         find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"),
         find_image(FEW_SHOT_DIR, f"ref{EXP1}"),
         find_image(FEW_SHOT_DIR, f"example{EXP1}"),
         find_image(FEW_SHOT_DIR, f"manga_page{EXP2}"),
         find_image(FEW_SHOT_DIR, f"ref{EXP2}"),
         find_image(FEW_SHOT_DIR, f"example{EXP2}"),
+        *(p for _, p in find_character_ref_images(TARGET_DIR)),
     ]
 
     parts = []
@@ -127,11 +123,51 @@ def main(iteration: int = 0):
         return
     best_script = json.loads(best_path.read_text(encoding="utf-8"))
 
-    subsection(f"generate_storyboard (iter={iteration}, n={NUM_STORYBOARDS})")
+    subsection(f"generate_storyboard (iter={iteration}, backend={STORYBOARD_BACKEND})")
+
+    if STORYBOARD_BACKEND == "flux2":
+        generate_flux2(best_script, iteration)
+        return
 
     for i in range(NUM_STORYBOARDS):
         step(f"Storyboard {i + 1}/{NUM_STORYBOARDS}")
         generate_one(best_script, iteration, i)
+
+
+def generate_flux2(best_script: dict, iteration: int) -> None:
+    """Open-source storyboard backend: per-panel FLUX.2-dev generation (via a
+    cross-env subprocess bridge) + a Gemini best-of-N panel reviewer + local grid
+    composition. Produces exactly one storyboard candidate (storyboard_0.png),
+    unlike the gemini backend's NUM_STORYBOARDS independent whole-grid candidates."""
+    from PIL import Image
+    from src import evaluate_panel_candidates, flux2_bridge, grid_compose
+
+    character_description = json.loads(
+        (RESULTS_DIR / "character" / "character_description.json").read_text(encoding="utf-8")
+    )
+    out_dir = iter_dir(iteration) / "storyboard"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    step("Generating per-panel candidates (flux2)")
+    flux2_bridge.generate_candidates(
+        best_script, character_description, TARGET_DIR, TARGET_DIR / "manga_panels", out_dir
+    )
+
+    step("Reviewing per-panel candidates (Gemini)")
+    winners = evaluate_panel_candidates.main(iteration)
+    if len(winners) != NUM_CLIPS:
+        warn(f"Only {len(winners)}/{NUM_CLIPS} panels have a selected winner")
+
+    step("Composing storyboard grid")
+    selected_dir = out_dir / "selected"
+    panel_ids = sorted(c["id"] for c in best_script["clips"])
+    panels = [Image.open(selected_dir / f"panel{pid}.png").convert("RGB") for pid in panel_ids]
+    grid = grid_compose.compose_grid(
+        panels, columns=3, cell_size=(flux2_bridge.FLUX2_PANEL_WIDTH, flux2_bridge.FLUX2_PANEL_HEIGHT)
+    )
+    out_path = out_dir / "storyboard_0.png"
+    grid.save(out_path)
+    success(f"Saved {out_path}")
 
 
 if __name__ == "__main__":

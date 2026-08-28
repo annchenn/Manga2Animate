@@ -18,10 +18,15 @@ CONFIG_FILENAME = "config.json"
 
 def collect_models() -> dict:
     """The model ids from .env, as the pipeline resolved them."""
-    return {
+    models = {
         "text": os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview"),
         "image": os.environ.get("IMAGE_MODEL", "gemini-3-pro-image"),
+        "storyboard_backend": os.environ.get("STORYBOARD_BACKEND", "gemini"),
     }
+    if models["storyboard_backend"] == "flux2":
+        models["flux2_model_id"] = os.environ.get("FLUX2_MODEL_ID", "black-forest-labs/FLUX.2-dev")
+        models["flux2_num_variants"] = os.environ.get("FLUX2_NUM_VARIANTS", "3")
+    return models
 
 
 def write_run_config(run_dir: Path, run_id: str, target: str) -> tuple[Path, dict | None]:

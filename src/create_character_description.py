@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
-from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, success
 from src.runs import results_dir_from_env
-from src.utils import with_retry
+from src.utils import find_character_ref_images, make_genai_client, with_retry
 
 load_dotenv()
 
@@ -19,19 +18,7 @@ OUTPUT_DIR = RESULTS_DIR / "character"
 PROMPT_FILE = BASE_DIR / "prompts" / "create_character_description.txt"
 MODEL = os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview")
 
-# client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
-client = genai.Client(
-    vertexai=True,
-    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
-
-
-def find_image(directory: Path, stem: str) -> Path:
-    matches = list(directory.glob(f"{stem}.*"))
-    if not matches:
-        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
-    return matches[0]
+client = make_genai_client()
 
 
 def strip_code_block(text: str) -> str:
@@ -47,15 +34,17 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     prompt = PROMPT_FILE.read_text(encoding="utf-8")
-    ref_path = find_image(TARGET_DIR, "ref")
-    mime_type = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
-    image_part = types.Part.from_bytes(data=ref_path.read_bytes(), mime_type=mime_type)
+    ref_pairs = find_character_ref_images(TARGET_DIR)  # [(id, path), ...] sorted by id
+    info(f"Reference image(s): {', '.join(p.name for _, p in ref_pairs)}")
+    image_parts = []
+    for _, ref_path in ref_pairs:
+        mime_type = "image/jpeg" if ref_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+        image_parts.append(types.Part.from_bytes(data=ref_path.read_bytes(), mime_type=mime_type))
 
-    info(f"Reference image: {ref_path.name}")
     result = with_retry(
         lambda: client.models.generate_content(
             model=MODEL,
-            contents=[image_part, prompt],
+            contents=[*image_parts, prompt],
             config=types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
             ),
