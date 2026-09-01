@@ -1,0 +1,208 @@
+{
+  "Story_type": {
+    "en": "Action Manga",
+    "ch": "动作漫画"
+  },
+  "Characters": {
+    "girl1": {
+      "tag": "unrealistic_human",
+      "name_en": "girl1",
+      "name_ch": "女孩1",
+      "prompt_en": "Young female with a slim athletic figure; Short black hair tied in a distinctly small high ponytail, parted bangs, and long face-framing strands; Fair skin with large, bright purple eyes; Wearing a light-colored tunic featuring a high collar, shoulder pads, and a short skirt with a distinct patterned hem, topped with a shoulder capelet; Dark thigh-high boots; Dark arm warmers on both arms.",
+      "prompt_ch": "苗条运动型身材的年轻女性；黑色短发扎成明显的小高马尾，有分开的刘海和修饰脸型的长鬓角；皮肤白皙，有一双明亮的紫色大眼睛；身穿带有高领、垫肩和独特印花下摆短裙的浅色束腰外衣，外加一件小披肩；穿着深色过膝长靴；双臂戴着深色臂套。",
+      "num_of_appearances": 3
+    },
+    "robot1": {
+      "tag": "non_human",
+      "name_en": "robot1",
+      "name_ch": "机器人1",
+      "prompt_en": "Sleek, tall robotic mecha humanoid figure; Wearing full angular white body armor over a dark grey undersuit with blue chest accents; Helmet features a specific cross-shaped emblem on the forehead, a dark visor area, and yellow glowing eyes; Highly muscular sleek robotic build with broad shoulders and segmented plating on the arms and legs.",
+      "prompt_ch": "线条流畅的高大机甲人形；在深灰色底衣外穿着全套有棱角的白色身体装甲，胸部有蓝色点缀；头盔额头处有特定的十字形徽章，暗色护目镜区域和发出黄光的眼睛；极具肌肉感的流畅机器人体型，宽肩膀，四肢有分段的装甲板。",
+      "num_of_appearances": 4
+    },
+    "dragon1": {
+      "tag": "non_human",
+      "name_en": "dragon1",
+      "name_ch": "龙1",
+      "prompt_en": "Large anthropomorphic reptilian dragon creature; Spiky scales covering the back and head; Long scaly snout with sharp teeth and narrow sharp eyes; Extremely massive and highly muscular upper body.",
+      "prompt_ch": "巨大的人形爬行类龙形生物；背部和头部覆盖着尖锐的鳞片；长满鳞片的长吻部布满利齿，眼睛狭长锐利；上半身极其庞大且肌肉极其发达。",
+      "num_of_appearances": 5
+    }
+  },
+  "Shots": [
+    {
+      "index": 1,
+      "Plot Correspondence": {
+        "en": "girl1 and robot1 are engaged in a heated argument. girl1 insists that a true fight requires burning passion, while robot1 argues that a hot fist still needs a cool head, which she aggressively mocks.",
+        "ch": "女孩1和机器人1正在进行激烈的争吵。女孩1坚持真正的战斗需要燃烧的激情，而机器人1则认为炽热的拳头依然需要冷静的头脑，女孩1充满攻击性地嘲笑他的说教。"
+      },
+      "Setting Description": {
+        "en": "Daytime. Brightly lit open area with subtle action speed lines in the background. Exactly three small spectator figures are visible at the bottom center of the screen.",
+        "ch": "白天。光线明亮的开阔区域，背景中有细微的动作速度线。画面底部中央正好可以看到三个微小的旁观者身影。"
+      },
+      "Shot Perspective Design": {
+        "en": "Tight close-up shot",
+        "ch": "紧凑特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "robot1"
+        ],
+        "ch": [
+          "女孩1",
+          "机器人1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is positioned on the right side of the screen, leaning forward and facing screen left with a highly aggressive, open-mouthed expression. She wears cross-shaped hair accessories and has a braided rope detail visible on her clothing. robot1 is positioned on the left side of the screen, facing screen right towards girl1.",
+        "ch": "女孩1位于画面右侧，身体前倾，面向画面左侧，表情极具攻击性，张着嘴。她戴着十字形的发饰，衣服上可见编织绳细节。机器人1位于画面左侧，面向画面右侧看着女孩1。"
+      }
+    },
+    {
+      "index": 2,
+      "Plot Correspondence": {
+        "en": "While robot1 and girl1 continue their bickering off-screen about settling their dispute with fists, dragon1 watches them, growing increasingly annoyed and impatient with their conversation.",
+        "ch": "当机器人1和女孩1在画外继续争吵着要用拳头解决纠纷时，龙1注视着他们，对他们的对话感到越来越恼火和不耐烦。"
+      },
+      "Setting Description": {
+        "en": "Daytime. An arena setting. A horizontal railing spans the background across the upper half of the screen, with exactly 11 small, featureless audience silhouette figures standing behind it.",
+        "ch": "白天。竞技场环境。一道水平栏杆横跨画面上半部分的背景，栏杆后面站着正好11个没有五官的观众剪影。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot",
+        "ch": "特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "dragon1"
+        ],
+        "ch": [
+          "龙1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "dragon1 is positioned in the lower center of the screen, facing forward with a scowling expression and a popping vein visible on its head.",
+        "ch": "龙1位于画面下方中央，面向前方，表情阴沉，头上可见暴起的青筋。"
+      }
+    },
+    {
+      "index": 3,
+      "Plot Correspondence": {
+        "en": "Unable to contain its rage any longer, dragon1 unleashes a deafening, ferocious roar.",
+        "ch": "龙1再也无法抑制自己的愤怒，发出了震耳欲聋的凶猛咆哮。"
+      },
+      "Setting Description": {
+        "en": "Action-focused abstract background filled with radiating speed lines indicating intense motion or loud sound. Large Katakana sound effects are prominently positioned on the left and right sides.",
+        "ch": "充满放射状速度线的动作向抽象背景，表现出强烈的运动或巨大的声音。左右两侧显眼地分布着巨大的片假名音效字。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "大特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "dragon1"
+        ],
+        "ch": [
+          "龙1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "dragon1's face fills the screen, angled slightly upwards with jaws wide open in a fierce roar, exposing sharp teeth.",
+        "ch": "龙1的脸庞充满画面，微微向上倾斜，张开大嘴发出凶猛的咆哮，露出锋利的牙齿。"
+      }
+    },
+    {
+      "index": 4,
+      "Plot Correspondence": {
+        "en": "robot1 suddenly interrupts dragon1's rampage with a brutal, high-speed punch directly to the creature's face, inflicting massive shock and pain.",
+        "ch": "机器人1突然用一记高速重拳直击龙1的脸部，打断了这只怪物的暴行，给它带来了巨大的震惊和痛苦。"
+      },
+      "Setting Description": {
+        "en": "Daytime. Blank background focusing entirely on the point of impact to emphasize the sudden force.",
+        "ch": "白天。空白背景完全聚焦于撞击点，以强调突然的冲击力。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "大特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "robot1",
+          "dragon1"
+        ],
+        "ch": [
+          "机器人1",
+          "龙1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "From the right side of the screen, robot1's clenched, dark-gloved right fist thrusts inward, burying itself into dragon1's left eye and cheek on the left side of the screen. The impact heavily distorts dragon1's face, and its visible eye is wide open, conveying intense shock and pain from the heavy strike.",
+        "ch": "机器人1戴着深色手套的紧握右拳从画面右侧突入，重重击打在画面左侧龙1的左眼和脸颊上。巨大的冲击力使龙1的脸部严重扭曲，它可见的眼睛睁得大大的，传达出遭到重击后的极度震惊和痛苦。"
+      }
+    },
+    {
+      "index": 5,
+      "Plot Correspondence": {
+        "en": "The full scene reveals that dragon1 had lunged to attack, but robot1 effortlessly stopped the massive beast's momentum with a single punch, leaving girl1 frozen in surprise.",
+        "ch": "整个场景揭示出，龙1原本猛扑过来想要攻击，但机器人1毫不费力地用一拳阻止了这只巨大野兽的冲势，让女孩1惊愕地僵在原地。"
+      },
+      "Setting Description": {
+        "en": "Open arena area. Exactly two small stick-figure characters are visible in the bottom left corner, and exactly three small stick-figure characters are in the bottom right corner. A large black floating cross mark is visible in the air above girl1.",
+        "ch": "开阔的竞技场区域。左下角正好可以看到两个火柴人般的小人，右下角有三个。女孩1上方的半空中漂浮着一个巨大的黑色十字标记。"
+      },
+      "Shot Perspective Design": {
+        "en": "Wide shot",
+        "ch": "广角镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "robot1",
+          "dragon1"
+        ],
+        "ch": [
+          "女孩1",
+          "机器人1",
+          "龙1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 stands on the left side of the screen, holding a spear horizontally primarily with her right hand, her posture stiff with surprise. robot1 is in the center, facing screen right with his right arm fully extended horizontally to block. dragon1 is on the right side of the screen, lunging forward into the attack, its forward momentum completely halted by robot1's fist pressed against its snout.",
+        "ch": "女孩1站在画面左侧，主要用右手水平握着一把长矛，姿势因惊讶而僵硬。机器人1位于中央，面向画面右侧，右臂完全水平伸出进行格挡。龙1在画面右侧向前猛扑攻击，其向前的冲势被机器人1抵在它吻部的拳头完全阻止。"
+      }
+    },
+    {
+      "index": 6,
+      "Plot Correspondence": {
+        "en": "Enraged by the sudden interruption, girl1 glares murderously at the creature, stating darkly that she absolutely despises having her conversations cut short.",
+        "ch": "被这突如其来的打断激怒后，女孩1杀气腾腾地瞪着这只怪物，阴沉地表示她最讨厌别人打断她的谈话。"
+      },
+      "Setting Description": {
+        "en": "Indistinct background covered in heavy, dark stippling and screentone, creating a highly tense and menacing atmosphere.",
+        "ch": "模糊不清的背景覆盖着浓重的暗色点画和网点，营造出高度紧张和险恶的氛围。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot",
+        "ch": "特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1",
+          "robot1",
+          "dragon1"
+        ],
+        "ch": [
+          "女孩1",
+          "机器人1",
+          "龙1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is positioned on the right side of the screen, angled slightly away from the camera but turning her head back over her right shoulder to glare toward the left side of the screen with a dark, furious expression. She is wearing feathery hair accessories. robot1 is positioned on the left side of the screen, facing screen right, looking slightly downwards toward girl1 with visible sweat drops on its helmet. On the far left edge of the screen, dragon1's eye and scales are partially visible.",
+        "ch": "女孩1位于画面右侧，身体略微背对镜头，但转头越过右肩向画面左侧瞪去，表情阴暗愤怒。她戴着羽毛状的发饰。机器人1位于画面左侧，面向画面右侧，微微低头看着女孩1，头盔上可见汗滴。在画面最左侧边缘，隐约可见龙1的眼睛和鳞片。"
+      }
+    }
+  ]
+}

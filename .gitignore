@@ -61,7 +61,7 @@ __pycache__/
 # these are results we regenerate locally, not source data -- keep ignored
 /benchmark/vistorybench/data/bench_results/ours/
 benchmark/vistorybench/data/outputs/ours/
-
+benchmark/vistorybench/note
 # upstream demo media (30M: 20M mp4 + 5M teasers), not needed to run the bench
 /benchmark/vistorybench/assets/
 

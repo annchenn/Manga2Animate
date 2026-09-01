@@ -1,0 +1,182 @@
+{
+  "Story_type": {
+    "en": "Action Manga",
+    "ch": "动作漫画"
+  },
+  "Characters": {
+    "girl1": {
+      "tag": "unrealistic_human",
+      "name_en": "girl1",
+      "name_ch": "女孩1",
+      "prompt_en": "Young teenage girl, petite build; Black hair styled in long twin tails; Large, expressive eyes; Wears a light-colored zip-up jacket over a dark top, a dark pleated skirt, and dark tights or leggings.",
+      "prompt_ch": "身材娇小的十几岁年轻女孩；黑发扎成双马尾；有一双富有表现力的大眼睛；身穿浅色拉链外套，内搭深色上衣，下穿深色百褶裙以及深色紧身裤或打底裤。",
+      "num_of_appearances": 3
+    },
+    "man1": {
+      "tag": "unrealistic_human",
+      "name_en": "man1",
+      "name_ch": "男人1",
+      "prompt_en": "Young adult male, athletic build; Short, spiky light-colored hair; Sharp facial features; Wears a light-colored button-up shirt, a dark necktie, a dark suit jacket, dark trousers, and sturdy hiking-style shoes.",
+      "prompt_ch": "体格健壮的年轻成年男性；留着浅色刺猬头短发；五官立体分明；身穿浅色纽扣衬衫，打深色领带，外穿深色西装外套，下穿深色长裤和结实的登山式鞋子。",
+      "num_of_appearances": 2
+    }
+  },
+  "Shots": [
+    {
+      "index": 1,
+      "Plot Correspondence": {
+        "en": "A mysterious cylindrical object suddenly tumbles rapidly through the air.",
+        "ch": "一个神秘的圆柱形物体突然在空中快速翻滚落下。"
+      },
+      "Setting Description": {
+        "en": "Mostly blank white space. Exactly one main object (the spinning cylinder) is visible in the center, surrounded by curved motion lines and small debris. Japanese sound effects are positioned above and below the center object.",
+        "ch": "大片留白空间。正中央可见唯一的实物（旋转的圆柱体），周围环绕着弯曲的运动线和细小的碎片。日语拟声词分布在中央物体的上下方。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot",
+        "ch": "特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [],
+        "ch": []
+      },
+      "Static Shot Description": {
+        "en": "A small cylindrical object tumbles through the air, positioned in the center of the screen.",
+        "ch": "一个小圆柱形物体在空中翻滚，位于画面正中央。"
+      }
+    },
+    {
+      "index": 2,
+      "Plot Correspondence": {
+        "en": "A massive, cracked cylinder bursts through the ceiling and plummets directly toward girl1, leaving her paralyzed in shock as others flee.",
+        "ch": "一个巨大的、满是裂纹的圆柱体击穿天花板，径直砸向女孩1，她吓得动弹不得，而其他人则四散逃跑。"
+      },
+      "Setting Description": {
+        "en": "An indoor room with a tiled ceiling that is clearly breaking apart in the upper right, and a grid-patterned floor below. A massive, cracked cylindrical object is falling from the upper right, surrounded by falling debris. Exactly three people are visible in the room: one girl in the center, one man on the left, and one man on the right. Large, stylized sound effect characters are positioned on the left and bottom edges. In the bottom left corner, there is an inset panel displaying a partial view of an eye.",
+        "ch": "室内房间，右上角的网格天花板明显正在碎裂，下方是网格图案的地板。一个巨大的、带有裂纹的圆柱形物体正从右上角坠落，周围伴随着掉落的碎片。房间内正好可见三人：中间一个女孩，左右各一个男人。巨大且风格化的拟声词位于画面左侧和底部边缘。左下角有一个插入的画格，显示出一只眼睛的局部。"
+      },
+      "Shot Perspective Design": {
+        "en": "High-angle wide shot",
+        "ch": "高角度广角镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1"
+        ],
+        "ch": [
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is standing dead-center on the floor, her body rigid and facing forward towards the camera, looking up in shock. A giant cylindrical object is plummeting from the upper right corner directly towards her. A background character in a suit is running away towards the middle-left edge of the screen, while another background character in a suit is running away towards the bottom-right corner, covering his head.",
+        "ch": "女孩1笔直地站在地板正中央，身体僵硬，面向镜头，惊恐地抬头看。一个巨大的圆柱形物体正从右上角径直砸向她。背景中一名穿西装的角色正朝画面左侧中间跑去，而另一名穿西装的背景角色捂着头朝右下角逃跑。"
+      }
+    },
+    {
+      "index": 3,
+      "Plot Correspondence": {
+        "en": "Terrified, girl1 watches helplessly as the deadly object falls.",
+        "ch": "女孩1惊恐万分，无助地看着这个致命物体坠落。"
+      },
+      "Setting Description": {
+        "en": "Abstract, stylized space. The background consists of dynamic, converging action lines that focus attention on the center of the frame. Several stylized, floating dark rectangular shapes with hatching are scattered in the background alongside the action lines. Exactly one character is visible in the center.",
+        "ch": "抽象的风格化空间。背景由充满动感的汇聚性集中线组成，将注意力吸引至画面中央。一些带有排线的风格化悬浮深色矩形块散落在背景的集中线之间。正中央仅可见一名角色。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot, angled slightly from below",
+        "ch": "特写镜头，略带仰视角度"
+      },
+      "Characters Appearing": {
+        "en": [
+          "girl1"
+        ],
+        "ch": [
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "girl1 is positioned in the center, looking upwards towards the top of the screen with wide eyes and an open mouth in a shocked expression.",
+        "ch": "女孩1位于画面正中，她双眼圆睁，嘴巴微张，神情震惊地望着画面上方。"
+      }
+    },
+    {
+      "index": 4,
+      "Plot Correspondence": {
+        "en": "Someone notices the extreme danger and yells out a desperate warning.",
+        "ch": "有人察觉到了极度的危险，拼命大喊出警告。"
+      },
+      "Setting Description": {
+        "en": "An abstract background dominated by sharp, intense diagonal speed lines that heighten the feeling of extreme tension and panic. The speech bubble occupies the left side of the screen.",
+        "ch": "抽象背景，画面被锐利、强烈的对角线速度线占据，加剧了极度紧张和恐慌的氛围。对话框占据了屏幕左侧。"
+      },
+      "Shot Perspective Design": {
+        "en": "Extreme close-up shot",
+        "ch": "大特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [],
+        "ch": []
+      },
+      "Static Shot Description": {
+        "en": "A single, highly detailed, wide-open eye is positioned on the right side of the screen, conveying immense shock or urgency. The eye is looking slightly towards the left side of the screen.",
+        "ch": "画面右侧显示了一只细节丰富、完全睁开的单眼，传达出极度的震惊或紧迫感。这只眼睛略微向画面左侧看去。"
+      }
+    },
+    {
+      "index": 5,
+      "Plot Correspondence": {
+        "en": "man1 springs into action, his foot slamming onto the ground as he rushes forward.",
+        "ch": "男人1迅速采取行动，脚猛烈地踏在地上，向前冲刺。"
+      },
+      "Setting Description": {
+        "en": "Abstract ground surface overlaid with intense horizontal and diagonal speed lines indicating rapid forward acceleration. A section of a grid-patterned tiled floor is explicitly visible in the bottom right corner underneath the speech bubble area. Only a single shoe and part of a lower leg are visible in the upper center.",
+        "ch": "抽象的地面，覆盖着强烈的水平和对角速度线，表示快速向前的加速。右下角对话框区域下方可以清楚看到一小块网格图案的瓷砖地板。画面上方中间仅可见一只鞋子和部分小腿。"
+      },
+      "Shot Perspective Design": {
+        "en": "Close-up shot",
+        "ch": "特写镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "man1"
+        ],
+        "ch": [
+          "男人1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "A single hiking-style shoe slams onto the ground, located in the upper center of the screen. Heavy impact lines radiate outward.",
+        "ch": "一只登山式鞋子猛地踩在画面上方中间的地面上。强烈的冲击线向外辐射。"
+      }
+    },
+    {
+      "index": 6,
+      "Plot Correspondence": {
+        "en": "Just in time, man1 leaps into the air and intercepts the falling object with a devastating kick to protect girl1.",
+        "ch": "千钧一发之际，男人1跃入空中，用一记极具破坏力的踢腿拦截了坠落的物体，保护了女孩1。"
+      },
+      "Setting Description": {
+        "en": "Abstract action space filled with intense, stark horizontal speed lines conveying the high-velocity impact of the strike. Exactly three main entities are visible: a large cylindrical object on the left, a man mid-kick on the right, and a girl in the bottom center. Large, prominent sound effect characters are positioned centrally right above the impact zone.",
+        "ch": "充满强烈、分明的水平速度线的抽象动作空间，传达了高速打击的冲击力。画面中可见三个主要实体：左侧巨大的圆柱形物体、右侧正在凌空踢腿的男人以及底部中间的女孩。巨大醒目的拟声词位于撞击区正上方。"
+      },
+      "Shot Perspective Design": {
+        "en": "Medium wide shot",
+        "ch": "中远景镜头"
+      },
+      "Characters Appearing": {
+        "en": [
+          "man1",
+          "girl1"
+        ],
+        "ch": [
+          "男人1",
+          "女孩1"
+        ]
+      },
+      "Static Shot Description": {
+        "en": "man1 is suspended in mid-air on the right side of the screen, executing a high kick with his right leg while holding his left arm up, aimed toward screen left. He has a fierce and straining facial expression as he exerts effort. His necktie is flying dynamically through the air as his foot connects forcefully with a large, heavy cylindrical object positioned on the left side of the screen, visibly denting its surface upon impact. girl1 is positioned in the lower center foreground, viewed from behind, facing screen left towards the point of impact.",
+        "ch": "男人1悬在画面右侧的半空中，举起左臂，右腿向画面左侧踢出一记高扫腿。他用尽全力，表情凶狠且紧绷。随着他的脚重重地踢在左侧巨大的沉重圆柱形物体上，他的领带在空中动态飘舞，物体表面因撞击明显凹陷。女孩1位于前景中下部，背对镜头，面向画面左侧的撞击点。"
+      }
+    }
+  ]
+}
