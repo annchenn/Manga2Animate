@@ -4,12 +4,11 @@ import os
 import re
 import shutil
 from pathlib import Path
-from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, step, subsection, success, warn
 from src.runs import results_dir_from_env
-from src.utils import with_retry
+from src.utils import find_character_ref_images, make_genai_client, with_retry
 
 load_dotenv()
 
@@ -29,6 +28,15 @@ MODEL = os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview")
 NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+STORYBOARD_BACKEND = os.environ.get("STORYBOARD_BACKEND", "gemini")
+FLUX2_WEAK_SCORE_THRESHOLD = 3  # per-criterion score (0-4) below which we call it "weak"
+
+
+def sb_indices_for_backend() -> list[int]:
+    if STORYBOARD_BACKEND == "flux2":
+        return [0]
+    return list(range(NUM_STORYBOARDS))
+
 
 CRITERIA_BY_NUMBER = {
     "1": "Character Identity Preservation",
@@ -48,24 +56,13 @@ CRITERIA_BY_NUMBER = {
 NAME_TO_NUMBER = {v: k for k, v in CRITERIA_BY_NUMBER.items()}
 INDEPENDENT_CRITERIA = {"3", "4", "5", "6", "12"}
 
-client = genai.Client(
-    vertexai=True,
-    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
+client = make_genai_client()
 
 
 # --- Path helpers ---
 
 def iter_dir(iteration: int) -> Path:
     return RESULTS_DIR / f"iter{iteration}"
-
-
-def find_image(directory: Path, stem: str) -> Path:
-    matches = list(directory.glob(f"{stem}.*"))
-    if not matches:
-        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
-    return matches[0]
 
 
 def find_in_dir(directory: Path, stem: str) -> Path:
@@ -145,8 +142,8 @@ def compare_same_script(sb_a: Path, sb_b: Path, script_path: Path, out_path: Pat
     prompt = template.replace("{Script JSON}", script_text)
 
     panels = [TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)]
-    ref = find_image(TARGET_DIR, "ref")
-    result = call_reviewer(prompt, [*panels, ref, sb_a, sb_b], "same_script reviewer")
+    refs = [p for _, p in find_character_ref_images(TARGET_DIR)]
+    result = call_reviewer(prompt, [*panels, *refs, sb_a, sb_b], "same_script reviewer")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     success(f"Saved {out_path.name}")
@@ -163,8 +160,8 @@ def compare_different_script(
     prompt = prompt.replace("{Script 2 JSON}", script_b.read_text(encoding="utf-8"))
 
     panels = [TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)]
-    ref = find_image(TARGET_DIR, "ref")
-    result = call_reviewer(prompt, [*panels, ref, sb_a, sb_b], "different_script reviewer")
+    refs = [p for _, p in find_character_ref_images(TARGET_DIR)]
+    result = call_reviewer(prompt, [*panels, *refs, sb_a, sb_b], "different_script reviewer")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     success(f"Saved {out_path.name}")
@@ -323,16 +320,59 @@ def run_pairwise_same_script(
 
 # --- Iter 0 ---
 
+def aggregate_panel_feedback(iteration: int) -> dict:
+    """flux2-only, used by run_iter0's single-candidate branch: build one
+    'improvement_suggestions_for_winner'-shaped dict by aggregating the WINNING
+    variant's weak-scoring criteria + its own improvement_suggestions across
+    evaluate_panel_candidates.py's per-panel review JSONs (each of which holds
+    every variant's independently-scored result under "per_variant"). No extra
+    Gemini call — reuses data already produced during the generate_storyboard
+    stage."""
+    review_dir = iter_dir(iteration) / "storyboard" / "candidates"
+    weak: dict[str, list[str]] = {}
+    for rp in sorted(review_dir.glob("panel_review_*.json")):
+        try:
+            data = json.loads(rp.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        winner_key = data.get("overall_winner", {}).get("variant")
+        winner_result = data.get("per_variant", {}).get(winner_key, {})
+        for crit_name, crit in winner_result.get("criteria_scores", {}).items():
+            score = crit.get("score") if isinstance(crit, dict) else None
+            if isinstance(score, (int, float)) and score < FLUX2_WEAK_SCORE_THRESHOLD:
+                reason = crit.get("reason", "") if isinstance(crit, dict) else ""
+                weak.setdefault(crit_name, []).append(f"{rp.stem}: {reason}")
+        for crit_name, suggestion in winner_result.get("improvement_suggestions", {}).items():
+            if crit_name == "ONLY_INCLUDE_IF_NEEDED":
+                continue
+            weak.setdefault(crit_name, []).append(f"{rp.stem}: {suggestion}")
+    return {k: " | ".join(v) for k, v in weak.items()}
+
+
 def run_iter0(iteration: int = 0):
     out_dir = iter_dir(iteration)
     interim = out_dir / "intermediate"
     interim.mkdir(parents=True, exist_ok=True)
 
     script_path = out_dir / "bestScript.json"
-    sb_indices = list(range(NUM_STORYBOARDS))
+    sb_indices = sb_indices_for_backend()
     sb_paths = {i: storyboard_path(iteration, i) for i in sb_indices}
 
     subsection(f"evaluate_storyboards (iter={iteration}, same_script pairwise)")
+
+    if len(sb_indices) == 1:
+        # flux2 backend: exactly 1 candidate is ever produced, so there are 0
+        # pairwise comparisons possible — skip run_pairwise_same_script entirely.
+        winner_idx = sb_indices[0]
+        branch = "iter0_flux2_single"
+        src = sb_paths[winner_idx]
+        dst = out_dir / f"bestStoryboard{src.suffix}"
+        shutil.copy2(src, dst)
+        success(f"Best storyboard: sb {winner_idx} → {dst.name} (single flux2 candidate, no comparison)")
+        feedbacks = [aggregate_panel_feedback(iteration)]
+        write_meta_and_feedback(interim, branch, winner_idx, "one", feedbacks)
+        return
+
     winner_idx, feedbacks, branch_suffix = run_pairwise_same_script(
         iteration, sb_indices, sb_paths, script_path, interim
     )
@@ -359,7 +399,7 @@ def run_iter_n(iteration: int):
     prev_script_path = prev_dir / "bestScript.json"
     prev_sb = best_storyboard_path(iteration - 1)
 
-    sb_indices = list(range(NUM_STORYBOARDS))
+    sb_indices = sb_indices_for_backend()
     sb_paths = {i: storyboard_path(iteration, i) for i in sb_indices}
 
     subsection(f"evaluate_storyboards (iter={iteration}, vs prev best)")

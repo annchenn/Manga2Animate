@@ -72,6 +72,13 @@ def parse_args():
         default="1",
         help="Google Cloud project to use (1=GOOGLE_CLOUD_PROJECT, 2=GOOGLE_CLOUD_PROJECT2, 3=GOOGLE_CLOUD_PROJECT3); default 1",
     )
+    parser.add_argument(
+        "--storyboard-backend",
+        choices=["gemini", "flux2"],
+        default=None,
+        help="Storyboard generation/evaluation backend (default: gemini, "
+             "or STORYBOARD_BACKEND from .env if set)",
+    )
     return parser.parse_args()
 
 
@@ -111,6 +118,11 @@ os.environ["TARGET_ROOT"] = args.target_root
 os.environ["RESULTS_ROOT"] = args.results_root
 os.environ["RUN_ID"] = RUN_ID
 os.environ["GOOGLE_CLOUD_PROJECT"] = GCP_PROJECT_MAP[args.project]
+
+STORYBOARD_BACKEND = args.storyboard_backend or os.environ.get("STORYBOARD_BACKEND", "gemini")
+if STORYBOARD_BACKEND not in {"gemini", "flux2"}:
+    raise ValueError(f"Invalid storyboard backend '{STORYBOARD_BACKEND}' (must be gemini or flux2)")
+os.environ["STORYBOARD_BACKEND"] = STORYBOARD_BACKEND
 
 init_log_file(RUN_DIR / "log.txt")
 
@@ -220,6 +232,9 @@ def storyboard_image_path(iteration: int, sb_index: int) -> Path | None:
 
 
 def storyboards_done(iteration: int) -> bool:
+    if STORYBOARD_BACKEND == "flux2":
+        p = storyboard_image_path(iteration, 0)
+        return p is not None and _nonempty_file(p)
     return all(
         (p := storyboard_image_path(iteration, i)) is not None and _nonempty_file(p)
         for i in range(generate_storyboard.NUM_STORYBOARDS)
@@ -265,7 +280,10 @@ def record_run_config() -> None:
     try:
         path, previous = write_run_config(RUN_DIR, RUN_ID, args.target)
         models = collect_models()
-        info(f"Config: {path.relative_to(BASE_DIR)}  (text={models['text']}, image={models['image']})")
+        info(
+            f"Config: {path.relative_to(BASE_DIR)}  "
+            f"(text={models['text']}, image={models['image']}, backend={models['storyboard_backend']})"
+        )
         if previous is not None and previous != models:
             warn(
                 f"{CONFIG_FILENAME} already recorded different models for {RUN_ID}: {previous}. "
@@ -317,7 +335,8 @@ def main():
     rule(
         f"[bold cyan]Manga → Storyboard pipeline  ·  "
         f"target=[white]{args.target}[/]  ·  run=[white]{RUN_ID}[/]  ·  "
-        f"final_iter=[white]{FINAL_ITER}[/]  ·  auto_resume=[white]{args.auto_resume}[/]"
+        f"final_iter=[white]{FINAL_ITER}[/]  ·  auto_resume=[white]{args.auto_resume}[/]  ·  "
+        f"storyboard_backend=[white]{STORYBOARD_BACKEND}[/]"
     )
 
     info(f"Run directory: {RUN_DIR}")

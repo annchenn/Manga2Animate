@@ -2,13 +2,16 @@ Create an animation storyboard: 3×2 grid, landscape A4 format
 
 Image Input Order:
 1–6. Target manga panels given by order in a manga page using different names (panel1.png…e.t.c.)
-7. Target character reference
-8. Example 1 manga page
-9. Example 1 character reference
-10. Example 1 storyboard
-11. Example 2 manga page
-12. Example 2 character reference
-13. Example 2 storyboard
+7. Example 1 manga page
+8. Example 1 character reference
+9. Example 1 storyboard
+10. Example 2 manga page
+11. Example 2 character reference
+12. Example 2 storyboard
+13 onward. Target character reference image(s) — one image per character, in
+   Character[id] order (id 1 first, then id 2, ...). The exact count varies by
+   target: it may be a single composite reference sheet (all characters in one
+   image) or several separate clean per-character images.
 
 ---
 
@@ -26,17 +29,17 @@ Example 1 Animation Script:
 {Example 1 Animation Script}
 
 Example 1 Instruction:
-- Image 3 is the manga page, Image 4 is its character reference, Image 5 is its corresponding storyboard
+- Image 7 is the manga page, Image 8 is its character reference, Image 9 is its corresponding storyboard
 - Study how each manga panel is interpreted into a storyboard frame following the script clips above
 
 Example 2 Animation Script:
 {Example 2 Animation Script}
 
 Example 2 Instruction:
-- Image 6 is the manga page, Image 7 is its character reference, Image 8 is its corresponding storyboard
+- Image 10 is the manga page, Image 11 is its character reference, Image 12 is its corresponding storyboard
 - Study how each manga panel is interpreted into a storyboard frame following the script clips above
 
-Apply the same approach from both examples to convert Image 1 (target manga) and the target script below into your storyboard output, using Image 2 as the character reference.
+Apply the same approach from both examples to convert Images 1–6 (target manga panels) and the target script below into your storyboard output, using the target character reference image(s) — the final group of images in the input, starting at Image 13 — as the character reference(s).
 
 ---
 
@@ -46,7 +49,7 @@ Target Animation Script:
 ---
 
 Requirements:
-- Input manga panels are given by order or you can tell the difference by their name(like panel1.png…). Please be very careful and don’t mess up the order.
+- Input manga panels are given by order or you can tell the difference by their name(like panel1.png…). Please be very careful and don't mess up the order.
 - Each storyboard panel must be equally sized
 - Strictly follow the 1 clip : 1 manga panel : 1 storyboard panel rule
 - Include camera angles and character poses as described in each clip
@@ -58,5 +61,4 @@ Requirements:
 - Object placement must follow both the manga and the script.
 - Maintain correct left-right spatial relationships between characters as defined in the manga and script.
 - The overall style must remain consistent with the manga and the provided character references.
-- Character's face must be clear and identical to the reference image
-
+- Character's face must be clear and identical to the reference image(s)

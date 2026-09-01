@@ -11,3 +11,5 @@ shapely==2.1.2
 matplotlib==3.10.8
 networkx==3.6.1
 timm==1.0.27
+opencv-python==5.0.0.93
+requests==2.34.2

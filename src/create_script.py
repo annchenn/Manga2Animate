@@ -3,12 +3,11 @@ import mimetypes
 import os
 import re
 from pathlib import Path
-from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from src.log import error, info, step, subsection, success, warn
 from src.runs import results_dir_from_env
-from src.utils import with_retry
+from src.utils import make_genai_client, with_retry
 
 load_dotenv()
 
@@ -28,21 +27,29 @@ NUM_SCRIPTS = int(os.environ.get("NUM_SCRIPTS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
 EXP1 = int(os.environ.get("EXP1", "0"))
 EXP2 = int(os.environ.get("EXP2", "3"))
+STORYBOARD_BACKEND = os.environ.get("STORYBOARD_BACKEND", "gemini")
 
 PROMPT_FILES = {
     "without": PROMPTS_DIR / "create_script_without_feedback.txt",
+    "without_no_fewshot": PROMPTS_DIR / "create_script_without_feedback_no_fewshot.txt",
     "one": PROMPTS_DIR / "create_script_with_one_feedback.txt",
+    # flux2 backend only ever reaches mode="one" (evaluate_storyboards.py's
+    # sb_indices_for_backend() returns a single candidate for flux2, so there is
+    # never a 2-/3-way storyboard-reviewer split to feed "two"/"three" mode) —
+    # same dialogue/on-screen-text tightening as "without_no_fewshot", found
+    # necessary after a full DualJustice1 run: iter1's shared feedback prompt
+    # wrote screenplay-style "Dialogue: Character[id]: '...'" lines that leaked
+    # past flux2_bridge.py's dialogue-stripping regex as dangling speaker labels,
+    # and one clip described "sound effect katakana" as a background visual
+    # element outright — both rendered as real on-screen text in the storyboard.
+    "one_flux2": PROMPTS_DIR / "create_script_with_one_feedback_flux2.txt",
     "two": PROMPTS_DIR / "create_script_with_two_feedback.txt",
     "three": PROMPTS_DIR / "create_script_with_three_feedback.txt",
 }
 
 REVIEWER_LABELS = ["Reviewer A", "Reviewer B", "Reviewer C"]
 
-client = genai.Client(
-    vertexai=True,
-    project=os.environ.get("GOOGLE_CLOUD_PROJECT", ""),
-    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
-)
+client = make_genai_client()
 
 
 def find_image(directory: Path, stem: str) -> Path:
@@ -56,14 +63,15 @@ def iter_dir(iteration: int) -> Path:
     return RESULTS_DIR / f"iter{iteration}"
 
 
-def build_prompt_without(template: str) -> str:
-    for n, exp_id in enumerate([EXP1, EXP2], 1):
-        char_desc = (FEW_SHOT_DIR / f"character_description{exp_id}.json").read_text(encoding="utf-8")
-        transcript = (FEW_SHOT_DIR / f"transcript{exp_id}.txt").read_text(encoding="utf-8")
-        script = (FEW_SHOT_DIR / f"script{exp_id}.json").read_text(encoding="utf-8")
-        template = template.replace(f"{{Character Description {n}}}", char_desc)
-        template = template.replace(f"{{Transcript {n}}}", transcript)
-        template = template.replace(f"{{Output {n}}}", script)
+def build_prompt_without(template: str, use_fewshot: bool) -> str:
+    if use_fewshot:
+        for n, exp_id in enumerate([EXP1, EXP2], 1):
+            char_desc = (FEW_SHOT_DIR / f"character_description{exp_id}.json").read_text(encoding="utf-8")
+            transcript = (FEW_SHOT_DIR / f"transcript{exp_id}.txt").read_text(encoding="utf-8")
+            script = (FEW_SHOT_DIR / f"script{exp_id}.json").read_text(encoding="utf-8")
+            template = template.replace(f"{{Character Description {n}}}", char_desc)
+            template = template.replace(f"{{Transcript {n}}}", transcript)
+            template = template.replace(f"{{Output {n}}}", script)
 
     target_char = (CHARACTER_DIR / "character_description.json").read_text(encoding="utf-8")
     target_transcript = (CHARACTER_DIR / "transcript.txt").read_text(encoding="utf-8")
@@ -108,9 +116,14 @@ def build_prompt_with_feedback(template: str, mode: str, iteration: int) -> str:
 
 
 def build_prompt(mode: str, iteration: int) -> str:
-    template = PROMPT_FILES[mode].read_text(encoding="utf-8")
     if mode == "without":
-        return build_prompt_without(template)
+        use_fewshot = STORYBOARD_BACKEND != "flux2"
+        template_key = "without" if use_fewshot else "without_no_fewshot"
+        template = PROMPT_FILES[template_key].read_text(encoding="utf-8")
+        return build_prompt_without(template, use_fewshot)
+    flux2_key = f"{mode}_flux2"
+    template_key = flux2_key if (STORYBOARD_BACKEND == "flux2" and flux2_key in PROMPT_FILES) else mode
+    template = PROMPT_FILES[template_key].read_text(encoding="utf-8")
     return build_prompt_with_feedback(template, mode, iteration)
 
 
@@ -118,7 +131,7 @@ def generate_script(mode: str, iteration: int) -> str:
     prompt_text = build_prompt(mode, iteration)
 
     image_paths = []
-    if mode == "without":
+    if mode == "without" and STORYBOARD_BACKEND != "flux2":
         image_paths.append(find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"))
         image_paths.append(find_image(FEW_SHOT_DIR, f"manga_page{EXP2}"))
     for clip_id in range(1, NUM_CLIPS + 1):
@@ -144,9 +157,12 @@ def generate_script(mode: str, iteration: int) -> str:
     )
 
 
+VALID_MODES = {"without", "one", "two", "three"}
+
+
 def main(iteration: int = 0, mode: str = "without"):
-    if mode not in PROMPT_FILES:
-        raise ValueError(f"Unknown mode '{mode}'. Use one of {list(PROMPT_FILES)}")
+    if mode not in VALID_MODES:
+        raise ValueError(f"Unknown mode '{mode}'. Use one of {sorted(VALID_MODES)}")
     if iteration == 0 and mode != "without":
         raise ValueError("iter 0 must use mode='without'")
     if iteration > 0 and mode == "without":
