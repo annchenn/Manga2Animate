@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -122,13 +123,53 @@ def extract_frame(video_path: Path, dst_png: Path, which: str = "mid") -> None:
     cv2.imwrite(str(dst_png), frame)
 
 
+def extract_frames(video_path: Path, dst_dir: Path, count: int) -> int:
+    """
+    Save `count` evenly spaced frames from one clip into dst_dir as frame_00.png ...
+
+    One clip is one shot here, so uniform sampling over the whole clip is the shot's
+    10-frame sample: ViStoryBench scores each frame and averages them. Returns how
+    many frames were written.
+    """
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"cv2 could not open {video_path}")
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
+
+    # Sequential read, because seeking is unreliable on some of these codecs and we
+    # want every frame anyway.
+    frames = []
+    while True:
+        ok, f = cap.read()
+        if not ok:
+            break
+        frames.append(f)
+    cap.release()
+    if not frames:
+        raise RuntimeError(f"no readable frame in {video_path} (reported {total} frames)")
+
+    if count <= 1:
+        picks = [len(frames) // 2]
+    else:
+        step = (len(frames) - 1) / (count - 1)
+        picks = [min(len(frames) - 1, round(i * step)) for i in range(count)]
+
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for f_i, idx in enumerate(picks):
+        cv2.imwrite(str(dst_dir / f"frame_{f_i:02d}.png"), frames[idx])
+    return len(picks)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--videos-dir", type=Path, required=True,
                         help="folder containing AniMaker's chosen clip videos (scene_<n>_clip_<n>.mp4)")
     parser.add_argument("--story", required=True, help="ViStoryBench story id, e.g. 03")
     parser.add_argument("--frame", choices=["mid", "first", "last"], default="mid",
-                        help="which frame to take from each clip (default: middle frame)")
+                        help="which frame to take from each clip when --frames-per-shot 1")
+    parser.add_argument("--frames-per-shot", type=int, default=10,
+                        help="frames sampled per clip for scoring; 1 writes the flat "
+                             "shot_N.png layout using --frame instead")
     parser.add_argument("--outputs-root", type=Path, default=DEFAULT_OUTPUTS_ROOT)
     parser.add_argument("--method", default="anim_video", help="baseline name under data/outputs/")
     parser.add_argument("--mode", default="base")
@@ -153,10 +194,17 @@ def main() -> None:
 
     failed = []
     for shot_num, scene_pos, clip_id, video_path in clips:
-        dst = shots_dir / f"shot_{shot_num}.png"
         try:
-            extract_frame(video_path, dst, which=args.frame)
-            print(f"  shot_{shot_num}.png  <-  {video_path.name}  (scene_{scene_pos}/clip_{clip_id})")
+            if args.frames_per_shot > 1:
+                dst = shots_dir / f"shot_{shot_num}"
+                if dst.exists():
+                    shutil.rmtree(dst)
+                n = extract_frames(video_path, dst, args.frames_per_shot)
+                print(f"  shot_{shot_num}/ ({n} frames)  <-  {video_path.name}  (scene_{scene_pos}/clip_{clip_id})")
+            else:
+                dst = shots_dir / f"shot_{shot_num}.png"
+                extract_frame(video_path, dst, which=args.frame)
+                print(f"  shot_{shot_num}.png  <-  {video_path.name}  (scene_{scene_pos}/clip_{clip_id})")
         except Exception as e:
             failed.append(shot_num)
             warn(f"shot {shot_num} ({video_path.name}): {e}")

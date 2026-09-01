@@ -15,10 +15,17 @@ from the same shot, so instead we:
 
 Input : <results-root>/<target>/video_fullstoryboard/seedance/<latest run>/best_video*.mp4
 Output: <results-root>/<target>/video_fullstoryboard/video_frames/
-            shot_1.png ... shot_6.png   ViStoryBench shot order
+            shot_1.png ... shot_6.png   representative frame per shot, ViStoryBench order
+            shot_1/frame_00.png ...     the frames sampled inside that shot
             overview.png                3x2 contact sheet (for visual check)
         <outputs-root>/<method>/<mode>/<language>/<timestamp>/<story_id>/shots/
-            shot_1.png ... shot_6.png   copy for the benchmark; --no-bench-copy skips it
+            shot_1/frame_00.png ...     copy for the benchmark; --no-bench-copy skips it
+
+With --frames-per-shot 1 the benchmark copy is the flat `shot_1.png ... shot_6.png`
+layout instead. ViStoryBench scores every frame in a `shot_<n>/` directory and averages
+them, so the default of 10 is the "sample 10 frames per shot" evaluation protocol; the
+representative frame stays the cut-aware pick described above and is what the contact
+sheet shows.
 
 The frames live next to the video they came from; the benchmark folder gets only the
 shot files, because ViStoryBench's loader parses every image name in `shots/` as
@@ -54,6 +61,7 @@ INDEX_FILE_NAME = "story_index.json"
 DATASET_NAME = "ViStory"
 
 NUM_FRAMES = 6                          # 3x2 storyboard
+FRAMES_PER_SHOT = 10                    # frames sampled inside each shot for scoring
 MIN_SHOT_SEC = 1.0                      # a real shot is never shorter than this
 CUT_REL_FRAC = 0.25                     # a cut must be this fraction of the clip's strongest cut
 CUT_ABS_FLOOR = 0.12                    # ...and at least this far apart, so near-static clips stay quiet
@@ -179,6 +187,24 @@ def pick_frame(
     return candidates[int(np.argmax((1 - DIFF_WEIGHT) * sharp + DIFF_WEIGHT * diff))]
 
 
+def sample_segment(seg_start: int, seg_end: int, count: int) -> list[int]:
+    """
+    `count` evenly spaced frame indices inside one shot's segment.
+
+    The same EDGE_FRAC head/tail trim as pick_frame is applied first, so the samples
+    stay clear of the transition frames on either side of a cut. Uniform spacing is
+    deliberate: the average over these frames is meant to represent the whole shot,
+    not its sharpest moment.
+    """
+    span = seg_end - seg_start
+    pad = int(span * EDGE_FRAC)
+    lo, hi = seg_start + pad, max(seg_start + pad + 1, seg_end - pad)
+    if count <= 1:
+        return [(lo + hi) // 2]
+    step = (hi - 1 - lo) / (count - 1)
+    return [min(hi - 1, lo + round(i * step)) for i in range(count)]
+
+
 def save_overview(frames: list[np.ndarray], picks: list[int], fps: float, out_path: Path) -> None:
     """3x2 contact sheet in the same reading order as the source storyboard."""
     cols, rows = 3, 2
@@ -219,6 +245,7 @@ def process_target(
     frames_dir: Path,
     bench_dir: Path | None,
     num_frames: int,
+    frames_per_shot: int = FRAMES_PER_SHOT,
 ) -> None:
     step(f"{target}: {video_path.relative_to(video_path.parents[4])}")
 
@@ -247,13 +274,31 @@ def process_target(
         seg = f"[{bounds[n - 1] / fps:5.2f}s-{bounds[n] / fps:5.2f}s]"
         info(f"  shot_{n}.png  {seg}  frame={idx}  t={idx / fps:.2f}s")
 
+    # Frames sampled across each shot; ViStoryBench averages its scores over these.
+    shot_frame_dirs = []
+    if frames_per_shot > 1:
+        for n in range(1, num_frames + 1):
+            shot_dir = frames_dir / f"shot_{n}"
+            shot_dir.mkdir(parents=True, exist_ok=True)
+            for f_i, idx in enumerate(sample_segment(bounds[n - 1], bounds[n], frames_per_shot)):
+                cv2.imwrite(str(shot_dir / f"frame_{f_i:02d}.png"), frames[idx])
+            shot_frame_dirs.append(shot_dir)
+        info(f"  sampled {frames_per_shot} frames per shot into shot_1/ ... shot_{num_frames}/")
+
     save_overview(frames, picks, fps, frames_dir / "overview.png")
     success(f"  wrote {num_frames} frames to {frames_dir}")
 
     if bench_dir is not None:
         bench_dir.mkdir(parents=True, exist_ok=True)
-        for shot_file in shot_files:
-            shutil.copy2(shot_file, bench_dir / shot_file.name)
+        if shot_frame_dirs:
+            for shot_dir in shot_frame_dirs:
+                dst = bench_dir / shot_dir.name
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(shot_dir, dst)
+        else:
+            for shot_file in shot_files:
+                shutil.copy2(shot_file, bench_dir / shot_file.name)
         info(f"  copied shots to {bench_dir}")
 
 
@@ -264,12 +309,15 @@ def main() -> None:
     parser.add_argument("--results-root", type=Path, default=BASE_DIR / "results_test")
     parser.add_argument("--dataset-root", type=Path, default=BASE_DIR / "benchmark/vistorybench/data/dataset")
     parser.add_argument("--outputs-root", type=Path, default=BASE_DIR / "benchmark/vistorybench/data/outputs")
-    parser.add_argument("--method", default="ours")
-    parser.add_argument("--mode", default="video")
+    parser.add_argument("--method", default="ours_video")
+    parser.add_argument("--mode", default="base")
     parser.add_argument("--language", default="en")
     parser.add_argument("--timestamp", default=datetime.now().strftime("%Y%m%d_%H%M%S"),
                         help="output timestamp folder; reuse one to overwrite a previous extraction")
     parser.add_argument("--num-frames", type=int, default=NUM_FRAMES)
+    parser.add_argument("--frames-per-shot", type=int, default=FRAMES_PER_SHOT,
+                        help="frames sampled inside each shot for scoring; "
+                             "1 writes the flat shot_N.png layout instead")
     parser.add_argument("--no-bench-copy", action="store_true",
                         help="only write <results-root>/<target>/video_fullstoryboard/video_frames/, "
                              "do not copy shots into the ViStoryBench outputs tree")
@@ -302,7 +350,8 @@ def main() -> None:
         bench_dir = None if args.no_bench_copy else (
             args.outputs_root / args.method / args.mode / args.language
             / args.timestamp / story_index[target] / "shots")
-        process_target(target, video_path, frames_dir, bench_dir, args.num_frames)
+        process_target(target, video_path, frames_dir, bench_dir, args.num_frames,
+                       args.frames_per_shot)
 
     if failed:
         warn(f"skipped: {', '.join(failed)}")
