@@ -62,6 +62,9 @@ __pycache__/
 /benchmark/vistorybench/data/bench_results/ours/
 benchmark/vistorybench/data/outputs/ours/
 benchmark/vistorybench/note
+# build_evaluation_sheet.py's output; regenerate with utils/build_evaluation_sheet.py
+/benchmark/vistorybench/evaluation_table.xlsx
+/benchmark/vistorybench/evaluation_tsv/
 # upstream demo media (30M: 20M mp4 + 5M teasers), not needed to run the bench
 /benchmark/vistorybench/assets/
 
@@ -84,3 +87,6 @@ benchmark/vistorybench/note
 
 # run_bench.sh keeps a .bak of every reference image it converts to jpg
 *.bak
+
+# NFS silly-rename leftovers, from deleting a file another process still has open
+.nfs*
