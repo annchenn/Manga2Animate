@@ -49,7 +49,24 @@ data/dataset/ViStory/03/
 
 `data/pretrain/` 的模型權重（9 GB）也已經下載完成。
 
-story id 對照：`01` = elf2、`02` = elf3、`03` = **goblin**、`04` = mado
+story id 對照見 `data/dataset/ViStory/story_index.json`：
+`01` elf2、`02` elf3、`03` goblin、`04` mado、`05` LoveHina、`06` DualJustice1、
+`07` DualJustice2、`08` kick。
+
+`05`–`08` 的 `story.json` 是用 `src/convert_to_vistory.py` 轉出來的，但
+`image/<角色>/` 還是空的 —— **角色參考圖要人工放**（`01`–`04` 那幾張是從漫畫頁裁的）。
+沒有參考圖的 story，CIDS 會直接 assert 失敗，所以那四個現在還跑不了。
+
+### OCCM 要用的漫畫 panel
+
+OCCM 現在是拿「原始漫畫 panel 裡偵測到幾個角色」跟「生成畫面偵測到幾個」比，
+所以每個 story 底下要有 `manga_panels/panel1.png ... panel6.png`：
+
+```bash
+python src/link_manga_panels.py          # 從 ../../target_test/<name>/manga_panels/ 複製過來
+```
+
+沒放的 story 會退回用劇本的角色數，並且在 log 印警告。
 
 ### 要放的：6 張 storyboard
 
@@ -66,10 +83,19 @@ data/outputs/<method>/<mode>/en/<timestamp>/03/shots/shot_1.png
 data/outputs/mybaseline/base/en/20260807_120000/03/shots/shot_1.png ... shot_6.png
 ```
 
-- `<method>`：你的 baseline 名稱，自己取，不要蓋掉 `ours/`
-- `<mode>`：隨意，`base` 即可
+- `<method>`：baseline 名稱。**storyboard 和 video 各自一個 method 資料夾**，`<mode>` 一律 `base`：
+
+  | | storyboard | video |
+  |---|---|---|
+  | 我們 | `ours_scene` | `ours_video` |
+  | AniMaker | `anim_scene` | `anim_video` |
+
+  （新的 baseline 照 `<名字>_scene` / `<名字>_video` 命名就好）
+- `<mode>`：一律 `base`
 - `<timestamp>`：格式必須是 `YYYYMMDD_HHMMSS`
-- `03`：story id，goblin
+- `03`：story id，見上面的對照表
+
+影片的 `shots/` 長得不一樣（每個 shot 一個資料夾、裡面 10 張 frame），見 3.1。
 
 可以不用自己想 timestamp，直接用 `date` 產生（把 `mybaseline` 和 `base` 換成你的 method 和 mode）：
 
@@ -94,10 +120,10 @@ conda activate vistorybench
 
 `run_bench.sh` 會自動轉檔、跑評測、產生 `result.md`。
 
-只跑特定 metric：
+預設只跑 **cids、csd、prompt_align**（OCCM 包在 cids 裡）。aesthetic / diversity 要自己指定：
 
 ```bash
-./run_bench.sh --method mybaseline --mode base --metrics cids csd
+./run_bench.sh --method mybaseline --mode base --metrics cids csd aesthetic diversity
 ```
 
 **指定 GPU：** 預設用 0 號卡。要換卡就在前面加 `GPU=<編號>`，先用 `nvidia-smi` 看哪張是空的。
@@ -106,7 +132,8 @@ conda activate vistorybench
 GPU=1 ./run_bench.sh --method mybaseline --mode base
 ```
 
-- 每次跑他會掃過那 <method><base>的dataset的所有story，   `summary.json` 是所有有評到的 story 取平均，現在只有03(goblin)有放所以他只會用03的
+- 每次跑會掃過 dataset 裡所有 story，`summary.json` 是「有評到的 story」取平均。
+  目前 `01`–`04` 有 outputs，`05`–`08` 缺角色參考圖所以會被跳過。
 
 **參數說明：**
 
@@ -114,10 +141,84 @@ GPU=1 ./run_bench.sh --method mybaseline --mode base
 |---|---|
 | `--method` | 必填，你的 outputs 資料夾名稱，可以填多個 |
 | `--mode` | 建議填，不填會把所有 mode 都列舉一遍 |
-| `--metrics` | 可選，預設全跑。可用：`cids` `csd` `aesthetic` `diversity` `prompt_align` |
+| `--metrics` | 可選，預設 `cids csd prompt_align`。另外還有 `aesthetic` `diversity` |
 | `--split lite` | **不要用**，lite 名單裡沒有 `03`，會整個跳過 |
 
-`prompt_align` 走 VLM，設定在 `.env`（`API_KEY` / `BASE_URL` / `MODEL_ID`，目前指向 Gemini 的 OpenAI 相容端點）。其他四個 metric 純本地模型，不需要 API。
+`prompt_align` 走 VLM，設定在 `.env`（`BASE_URL` / `MODEL_ID`，目前指向 Gemini 的 OpenAI 相容
+端點；key 沒寫在這裡，會去讀專案根目錄 `.env` 的 `GEMINI_API_KEY`）。要改用別家就在這個
+`.env` 設 `API_KEY`，它的優先權比 `GEMINI_API_KEY` 高。
+
+（別用 OpenAI 那組：那個 org 的 gpt-4.1 TPM 只有 30000，重複評分會整路被 429 擋住。）
+
+其他 metric 純本地模型，不需要 API。
+
+## 3.1 影片：一個 shot 抽 10 張 frame
+
+影片的每個 shot 會抽 10 張 frame，每張各自評分再平均。目錄長這樣：
+
+```
+<timestamp>/<story_id>/shots/shot_1/frame_00.png ... frame_09.png
+                             shot_2/...
+```
+
+- 我們自己的 pipeline（一支影片塞 6 個 shot）：
+  `python ../../src/crop_video_frames.py -t goblin --frames-per-shot 10`
+  先偵測切點，再在每一段內均勻取樣。
+- 一個 shot 一支影片的 baseline：
+  `python src/export_animaker_shots.py --videos-dir <clips> --story 03 --frames-per-shot 10`
+
+`--frames-per-shot 1` 會退回舊的 `shot_1.png ... shot_6.png` 平鋪格式，storyboard 就是這種。
+兩種格式 `run_bench.sh` 都吃，單張圖等同「只有一張 frame」。
+
+CIDS 的 self 分數只用每個 shot 的代表 frame（中間那張），cross 才用全部 10 張——
+不然同一段影片內的 frame 互比會把 self 灌得很高，跟 storyboard 的數字就不能比了。
+
+## 3.2 這次四個 run 是怎麼跑的（可重現）
+
+```bash
+cd /project/annchen/project/benchmark/vistorybench
+PY=/home_nfs/annchen/miniconda3/envs/vistorybench/bin/python
+```
+
+**(1) 我們的 storyboard** — 圖已經在 outputs 裡，直接評：
+
+```bash
+CUDA_VISIBLE_DEVICES=2 $PY bench_run.py --language en \
+    --method ours_scene --mode base --timestamp 20260807_000000
+```
+
+**(2) AniMaker storyboard** — 原本四個 story 散在四個 timestamp，先併成一個再評：
+
+```bash
+CUDA_VISIBLE_DEVICES=2 $PY bench_run.py --language en \
+    --method anim_scene --mode base --timestamp 20260828_all
+```
+
+**(3) 我們的 video** — 先切影片（一支 15s 影片內含 6 個 shot，要偵測切點）再評：
+
+```bash
+$PY ../../src/crop_video_frames.py -t elf2 -t elf3 -t goblin -t mado \
+    --timestamp 20260828_10frames --frames-per-shot 10
+CUDA_VISIBLE_DEVICES=2 $PY bench_run.py --language en \
+    --method ours_video --mode base --timestamp 20260828_10frames
+```
+
+**(4) AniMaker video** — 一個 shot 一支 clip，不用偵測切點：
+
+```bash
+SRC=../../evaluation_results/animaker_new/vistory_outputs/source_video
+for pair in "elf2 01" "elf3 02" "goblin 03" "mado 04"; do
+    set -- $pair
+    $PY src/export_animaker_shots.py --videos-dir $SRC/$1 --story $2 \
+        --method anim_video --mode base --timestamp 20260828_10frames --frames-per-shot 10
+done
+CUDA_VISIBLE_DEVICES=2 $PY bench_run.py --language en \
+    --method anim_video --mode base --timestamp 20260828_10frames
+```
+
+一個 story 大約 11 分鐘（CIDS 的 VLM 呼叫佔最久），四個 run 全跑完約 5.5 小時。
+跑完用 `python src/make_result_md.py --run <run 目錄>` 產 `result.md`
+（直接呼叫 `bench_run.py` 不會自動產，走 `run_bench.sh` 才會）。
 
 ## 4. 產物
 
@@ -151,8 +252,9 @@ repo 的 `Pipeline/res/<story>/videos/chosen/` 底下），全部丟進同一個
 附帶 `script.json`/`pipeline.json` 或其他 pipeline 中間產物。shot 編號是從檔名裡的
 `(scene_pos, clip_id)` 排序後累加得出，不是讀 story.json。
 
-**抽哪一幀**：預設抽**中間幀**（`--frame mid`，也支援 `first`/`last`）——中間幀最能代表整支
-片段實際演出的畫面，能避開片頭/片尾轉場的過渡幀。
+**抽幾幀**：預設每支 clip 均勻抽 **10 張**（`--frames-per-shot 10`），跟我們自己的影片一致。
+`--frames-per-shot 1` 才會退回舊行為：一支 clip 抽一張中間幀（`--frame mid`，也支援
+`first`/`last`），中間幀最能代表整支片段實際演出的畫面，能避開片頭/片尾轉場的過渡幀。
 
 **怎麼執行**：
 
@@ -162,11 +264,14 @@ python src/export_animaker_shots.py \
     --story 03
 ```
 
-輸出跟第 2 節的 `shots/` 慣例完全相容：
+輸出：
 
 ```
-data/outputs/anim_video/base/en/<timestamp>/03/shots/shot_1.png ... shot_6.png
+data/outputs/anim_video/base/en/<timestamp>/03/shots/shot_1/frame_00.png ... frame_09.png
+                                                      shot_2/...
 ```
+
+（`--frames-per-shot 1` 則是 `shots/shot_1.png ... shot_6.png`）
 
 `--method`（預設 `anim_video`）/`--mode`（預設 `base`）/`--language`（預設 `en`）/
 `--outputs-root`（預設本資料夾內的 `data/outputs`）都可以覆寫，用法跟第 2 節的
@@ -190,8 +295,38 @@ data/outputs/anim_video/base/en/<timestamp>/03/shots/shot_1.png ... shot_6.png
 | PA CI | `character_action` | 畫面主要角色動作是否符合腳本 |
 | PA IA | `single_character_action` | 指定角色的個別動作是否符合（CIDS 內部子項，需要 VLM） |
 | PA Avg. | — | 上面四項平均 |
-| CM | `occm` | 畫面中角色數量是否符合腳本 |
+| CM | `occm` | 生成畫面的角色數量 vs **原始漫畫 panel** 偵測到的角色數量 |
 | Inc | `inception_score` | Inception Score，生成圖多樣性。圖太少時數值不穩定 |
 | Aes | `aesthetic_score` | 美學評分 |
 | CP | `copy_paste_score` | 越低越好，高代表直接貼參考圖而不是重畫 |
 
+## 7. 這一版改了什麼
+
+對照 `note` 那六條：
+
+1. **PA 每項評 5 次**，回報平均和標準差（`scene` / `scene_std` …）。重複評分用
+   `top_p=1.0`、`temperature=1.0`；原本的 `top_p=0.2` 會讓 5 次結果完全一樣、std 恆為 0。
+   次數和溫度在 `config.yaml` 的 `evaluators.prompt_align` 底下調。
+2. **OCCM 改用 GroundingDINO 偵測漫畫 panel** 當作參考角色數（原本是讀劇本的角色列表），
+   panel 和生成畫面都用 prompt `"character"`、threshold 0.25。
+3. **CIDS 的角色相似度改用 SigLIP**（`data/pretrain/google/siglip-so400m-patch14-384`）。
+   `config.yaml` 的 `evaluators.cids.encoders.override` 可以改回 `clip`。
+4. **影片每個 shot 抽 10 張 frame 評分再平均**，見 3.1。
+5. **預設只跑 CSD / CIDS / PA / OCCM**。
+6. dataset 補到八個 story（`05`–`08` 還缺角色參考圖）。
+
+跑出來的 `summary.json` 多了 `*_std` 欄位，`result.md` 的 PA 會印成 `4.20 ±0.45`。
+每個 story 的 `story_results.json` 還有 `occm_details`（每個 shot 期望 vs 偵測到幾個角色）
+和 `scoring`（這次用的 encoder、threshold、重複次數）。
+
+`utils/build_evaluation_sheet.py` 會把所有 run 收成 paper 格式的表：
+
+```bash
+# 兩個分頁（Storyboard / Video），ViStoryBench 的指標欄有底色
+/home_nfs/annchen/miniconda3/envs/vistorybench/bin/python utils/build_evaluation_sheet.py \
+    -o /tmp/evaluation_table.xlsx --markdown
+```
+
+`--markdown` 會順便把表印在 terminal。`.csv` 副檔名則產單一平面表（沒有分頁和顏色）。
+沒跑過的 baseline 會是 `—`，欄位先擺著。要新增 baseline 或指標就改檔案最上面的
+`BLOCKS` / `METRIC_SOURCES` / `COLUMNS`。

@@ -4,7 +4,7 @@
 Called automatically by run_bench.sh; can also be run by hand:
 
     python src/make_result_md.py                          # newest run
-    python src/make_result_md.py --run data/bench_results/ours/storyboard/en/20260807_112929
+    python src/make_result_md.py --run data/bench_results/ours_scene/base/en/20260828_184634
     python src/make_result_md.py --output /tmp/r.md
 """
 
@@ -33,6 +33,10 @@ METRIC_LABELS = {
     "inception_score": "Inception Score",
     "inception_score_std": "IS std",
     "scene": "PromptAlign scene (VLM)",
+    "scene_std": "PromptAlign scene std",
+    "character_action_std": "PromptAlign character action std",
+    "camera_std": "PromptAlign camera std",
+    "single_character_action_std": "Single character action std",
     "character_action": "PromptAlign character action (VLM)",
     "camera": "PromptAlign camera (VLM)",
 }
@@ -104,8 +108,18 @@ def render(run_dir: Path) -> str:
 
     pa = [val("prompt_align", "scene"), val("prompt_align", "camera"),
           val("prompt_align", "character_action"), val("cids", "single_character_action")]
+    pa_std = [val("prompt_align", "scene_std"), val("prompt_align", "camera_std"),
+              val("prompt_align", "character_action_std"), val("cids", "single_character_action_std")]
     pa_nums = [v for v in pa if isinstance(v, (int, float))]
     pa_avg = sum(pa_nums) / len(pa_nums) if pa_nums else None
+    pa_std_nums = [v for v in pa_std if isinstance(v, (int, float))]
+    pa_std_avg = sum(pa_std_nums) / len(pa_std_nums) if pa_std_nums else None
+
+    def with_std(v, sd):
+        """`4.20 ±0.45` — the spread is the VLM's own repeat-to-repeat noise."""
+        if not isinstance(v, (int, float)):
+            return fmt(v)
+        return f"{fmt(v)} ±{fmt(sd)}" if isinstance(sd, (int, float)) else fmt(v)
 
     cells = [
         run.get("method", "—"), run.get("mode", "—"),
@@ -124,8 +138,9 @@ def render(run_dir: Path) -> str:
         ("CSD↑", [("Cross", val("csd", "cross_csd")), ("Self", val("csd", "self_csd"))]),
         ("CIDS↑", [("Cross", val("cids", "cids_cross_mean")),
                    ("Self", val("cids", "cids_self_mean"))]),
-        ("PA↑", [("Scene", pa[0]), ("Shot", pa[1]), ("CI", pa[2]), ("IA", pa[3]),
-                 ("Avg.", pa_avg)]),
+        ("PA↑", [("Scene", with_std(pa[0], pa_std[0])), ("Shot", with_std(pa[1], pa_std[1])),
+                 ("CI", with_std(pa[2], pa_std[2])), ("IA", with_std(pa[3], pa_std[3])),
+                 ("Avg.", with_std(pa_avg, pa_std_avg))]),
         ("CM↑", [("", val("cids", "occm"))]),
         ("Inc↑", [("", val("diversity", "inception_score"))]),
         ("Aes↑", [("", val("aesthetic", "aesthetic_score"))]),
@@ -142,6 +157,10 @@ def render(run_dir: Path) -> str:
     L.append("")
     L.append("PA: Scene=`scene`, Shot=`camera`, CI=`character_action`, "
              "IA=`single_character_action`. CM=`occm`, Inc=Inception Score, CP=copy-paste.")
+    L.append("")
+    L.append("PA values are the mean of 5 VLM scorings per item; ± is the mean spread "
+             "across those repeats. CM counts characters with GroundingDINO on the "
+             "ground-truth manga panel and on the generated shot, both at threshold 0.25.")
     L.append("")
 
     if not ran:

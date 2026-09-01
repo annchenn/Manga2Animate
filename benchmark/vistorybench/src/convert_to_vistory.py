@@ -104,24 +104,44 @@ def with_retry(fn, max_retries: int = 5, delay: float = 5.0, label: str | None =
 
 
 # --- Input discovery ---
+RUN_DIR_RE = re.compile(r"^\d{8}_\d{6}$")
+
+
+def iteration_roots(target_dir: Path) -> list[Path]:
+    """
+    Directories that may hold `iter<N>/`, newest run first.
+
+    Older targets keep their iterations directly under `<target>/`; runs made after the
+    pipeline started writing one folder per run keep them under
+    `<target>/<YYYYMMDD_HHMMSS>/`. Both layouts coexist in results_test, so look in the
+    target itself and in its run folders, preferring the most recent run.
+    """
+    runs = sorted((d for d in target_dir.iterdir() if d.is_dir() and RUN_DIR_RE.match(d.name)),
+                  key=lambda d: d.name, reverse=True)
+    return [target_dir] + runs
+
+
 def find_best_script(target_dir: Path, iteration: int | None) -> Path:
     """Return the bestScript.json for the requested iteration, or the highest one."""
-    if iteration is not None:
-        path = target_dir / f"iter{iteration}" / "bestScript.json"
-        if not path.exists():
-            raise FileNotFoundError(f"{path} not found")
-        return path
-
-    candidates = []
-    for d in target_dir.glob("iter*"):
-        if not d.is_dir():
+    for root in iteration_roots(target_dir):
+        if iteration is not None:
+            path = root / f"iter{iteration}" / "bestScript.json"
+            if path.exists():
+                return path
             continue
-        m = re.match(r"^iter(\d+)$", d.name)
-        if m and (d / "bestScript.json").exists():
-            candidates.append((int(m.group(1)), d / "bestScript.json"))
-    if not candidates:
-        raise FileNotFoundError(f"No iter*/bestScript.json found under {target_dir}")
-    return max(candidates, key=lambda x: x[0])[1]
+
+        candidates = []
+        for d in root.glob("iter*"):
+            if not d.is_dir():
+                continue
+            m = re.match(r"^iter(\d+)$", d.name)
+            if m and (d / "bestScript.json").exists():
+                candidates.append((int(m.group(1)), d / "bestScript.json"))
+        if candidates:
+            return max(candidates, key=lambda x: x[0])[1]
+
+    where = "iter{}".format(iteration) if iteration is not None else "iter*"
+    raise FileNotFoundError(f"No {where}/bestScript.json under {target_dir} or its run folders")
 
 
 def check_characters(best_script: dict) -> list:
