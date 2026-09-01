@@ -47,6 +47,7 @@ class BaseEvaluator(ABC):
         return (
             cli.get('api_key')
             or os.environ.get('API_KEY')
+            or os.environ.get('GEMINI_API_KEY')
             or ''
         )
     
@@ -65,6 +66,24 @@ class BaseEvaluator(ABC):
         cli = self.config.get('cli_args', {}) if isinstance(self.config, dict) else {}
         return cli.get(key, default)
     
+    @staticmethod
+    def get_shot_frames(story_outputs, shot_id):
+        """
+        Frames to score for one shot, as an ordered list.
+
+        A storyboard shot is a single image and yields a one-element list; a video
+        shot yields the frames sampled from that shot's clip. Every metric scores
+        each frame and averages, so both layouts go through the same code path.
+        """
+        shot_id = int(shot_id)
+        frames = (story_outputs or {}).get('shot_frames') or {}
+        got = frames.get(shot_id) or frames.get(str(shot_id))
+        if got:
+            return list(got)
+        shots = (story_outputs or {}).get('shots') or {}
+        single = shots.get(shot_id) or shots.get(str(shot_id))
+        return [single] if single else []
+
     def get_evaluator_config(self, evaluator_name):
         """Get evaluator-specific configuration"""
         return self.config.get('evaluators', {}).get(evaluator_name, {})

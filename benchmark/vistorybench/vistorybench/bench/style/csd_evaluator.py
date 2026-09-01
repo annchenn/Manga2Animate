@@ -34,7 +34,7 @@ class CSDEvaluator(BaseEvaluator):
         self.device = torch.device(self.get_device())
         csd_model_path = os.path.join(self.pretrain_path, 'csd/csd_vit-large.pth')
         self.csd_cfg = self.get_evaluator_config('csd') or {}
-        self.csd_cache_limit = int(self.csd_cfg.get('cache_limit', 20))
+        self.csd_cache_limit = int(self.csd_cfg.get('cache_limit', 256))
 
         self.csd_size = 224
         self.csd_mean = [0.48145466, 0.4578275, 0.40821073]
@@ -106,10 +106,14 @@ class CSDEvaluator(BaseEvaluator):
         
         story_data = self.story_dataset.load_story(story_id)
 
-        image_paths = story_outputs["shots"]
-        
-        self_csd_score = self.get_self_csd_score(image_paths.values())
-        cross_csd_score, shot_details = self.get_cross_csd_score(story_data, story_outputs)
+        shot_frames = {
+            int(shot_info['index']): self.get_shot_frames(story_outputs, shot_info['index'])
+            for shot_info in story_data['shots']
+        }
+        shot_frames = {k: v for k, v in shot_frames.items() if v}
+
+        self_csd_score = self.get_self_csd_score(shot_frames)
+        cross_csd_score, shot_details = self.get_cross_csd_score(story_data, story_outputs, shot_frames)
 
         scores = {
             "self_csd": self_csd_score,
@@ -145,20 +149,32 @@ class CSDEvaluator(BaseEvaluator):
             print(f"\033[33mWarning: build_item_records failed for CSD story {story_id}: {_e}\033[0m")
         return items
 
-    def get_self_csd_score(self, image_paths):
-        if len(image_paths) < 2:
+    def get_self_csd_score(self, shot_frames):
+        """
+        Style consistency between shots.
+
+        `shot_frames` maps shot index -> its sampled frames. For a pair of shots the
+        score is averaged over aligned frame positions (frame k of one against frame k
+        of the other), so a video shot contributes the mean of its sampled frames and a
+        storyboard shot (one frame) behaves exactly as before.
+        """
+        frame_lists = [v for v in shot_frames.values() if v]
+        if len(frame_lists) < 2:
             return 0.0
 
-        total_score = 0
+        total_score = 0.0
         count = 0
-        for img1_path, img2_path in combinations(image_paths, 2):
-            score = self._get_csd_score(img1_path, img2_path)
-            total_score += score
+        for frames1, frames2 in combinations(frame_lists, 2):
+            n = min(len(frames1), len(frames2))
+            pair_scores = [self._get_csd_score(frames1[k], frames2[k]) for k in range(n)]
+            if not pair_scores:
+                continue
+            total_score += sum(pair_scores) / len(pair_scores)
             count += 1
-        
+
         return total_score / count if count > 0 else 0.0
 
-    def get_cross_csd_score(self, story_data, outputs_data):
+    def get_cross_csd_score(self, story_data, outputs_data, shot_frames=None):
         # Calculate cross style similarity scores between generated images and reference images
 
         total_ri_score = []
@@ -166,6 +182,16 @@ class CSDEvaluator(BaseEvaluator):
 
         characters = story_data["characters"]
         outputs_shots = outputs_data.get('shots') or {}
+        if shot_frames is None:
+            shot_frames = {
+                int(si['index']): self.get_shot_frames(outputs_data, si['index'])
+                for si in story_data['shots']
+            }
+
+        def _score_shot(ref_image, frames):
+            """Score every sampled frame of the shot against the reference, then average."""
+            scores = [self._get_csd_score(ref_image, f) for f in frames]
+            return sum(scores) / len(scores) if scores else 0.0
 
         def _pick_reference_image(target_key=None):
             if target_key and target_key in characters:
@@ -183,6 +209,7 @@ class CSDEvaluator(BaseEvaluator):
             output_img_path = outputs_shots.get(shot_index) or outputs_shots.get(str(shot_index))
             if not output_img_path:
                 continue
+            frames = shot_frames.get(shot_index) or [output_img_path]
 
             start_time = time.time()
             per_char_scores = []
@@ -190,7 +217,7 @@ class CSDEvaluator(BaseEvaluator):
                 selected_key, ref_image = _pick_reference_image(char_key)
                 if not ref_image:
                     continue
-                score = self._get_csd_score(ref_image, output_img_path)
+                score = _score_shot(ref_image, frames)
                 per_char_scores.append({
                     "character_key": selected_key,
                     "ref_image": ref_image,
@@ -201,7 +228,7 @@ class CSDEvaluator(BaseEvaluator):
                 # Fallback to any available character reference if the shot has no characters/images
                 selected_key, ref_image = _pick_reference_image()
                 if ref_image:
-                    score = self._get_csd_score(ref_image, output_img_path)
+                    score = _score_shot(ref_image, frames)
                     per_char_scores.append({
                         "character_key": selected_key,
                         "ref_image": ref_image,
@@ -220,6 +247,7 @@ class CSDEvaluator(BaseEvaluator):
                 "score": shot_score,
                 "ref_image": per_char_scores[0]["ref_image"],
                 "gen_image": output_img_path,
+                "num_frames": len(frames),
                 "elapsed_time(seconds)": elapsed_time,
                 "character_scores": per_char_scores
             })

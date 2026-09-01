@@ -12,7 +12,22 @@ core:
 evaluators:
   prompt_align:
     gpt:
-      workers: 16
+      # 5 repeats per item multiplies the call count, and each Gemini call is ~9s, so
+      # the pool has to be wide or a 10-frame video story takes half an hour on its own.
+      workers: 32
+    # Every item is scored this many times; the reported value is the mean and
+    # <dim>_std is the spread across the repeats. Temperature has to be non-zero or
+    # the repeats collapse onto the same answer and the std is meaningless.
+    repeats: 5
+    temperature: 1.0
+    # Full distribution, not the 0.2 the single-shot path used: truncating it makes all
+    # five repeats identical and the std collapses to 0 regardless of the shot.
+    top_p: 1.0
+    # null => score every sampled frame of a shot (10 for video runs).
+    max_frames_per_shot: null
+
+  csd:
+    cache_limit: 256
 
   cids:
     ref_mode: origin
@@ -23,8 +38,16 @@ evaluators:
         box_threshold: 0.25
         text_threshold: 0.25
     encoders:
+      # SigLIP scores character identity for every character tag.
+      override: siglip
+      image: siglip
+      siglip:
+        model_id: google/siglip-so400m-patch14-384
       clip:
         model_id: openai/clip-vit-large-patch14
+    occm:
+      # Same plain prompt on the ground-truth manga panel and on the generated shot.
+      prompt: character
     matching:
       superfluous_threshold: 0.8
       topk_per_nochar: 5

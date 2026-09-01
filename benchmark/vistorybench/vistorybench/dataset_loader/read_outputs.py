@@ -28,12 +28,32 @@ def _latest_timestamp(subdirs: List[str]) -> str:
     return subdirs_sorted[-1]
 
 
+def _shot_index_from_name(name: str) -> Optional[int]:
+    """`shot_3.png` / `3.png` / `shot_3` -> 3. Returns None when there is no trailing number."""
+    stem = os.path.splitext(name)[0]
+    m = re.search(r'(\d+)$', stem)
+    return int(m.group(1)) if m else None
+
+
 def _collect_story_images(story_dir: str,
-                          return_latest: bool) -> Tuple[List[str], List[str]]:
+                          return_latest: bool) -> Tuple[dict, List[str], dict]:
     """
-    Scan a single story directory and return two ordered lists:
-    (shot_images, char_images)
-    If return_latest=True and timestamp subfolders exist, only the latest folder will be used.
+    Scan a single story directory and return
+    (shot_images, char_images, shot_frames)
+
+    `shot_images` maps shot index -> one representative image, which is what the
+    image-only metrics have always consumed. `shot_frames` maps shot index -> the
+    full ordered frame list for that shot.
+
+    Two layouts are supported under `shots/`:
+      - flat  : shot_1.png, shot_2.png, ...            (one frame per shot)
+      - nested: shot_1/frame_00.png ... frame_09.png   (video, N frames per shot)
+
+    In the flat case `shot_frames[i]` is a one-element list, so every caller can
+    treat both layouts identically. In the nested case the representative image is
+    the middle frame, the same frame `crop_video_frames.py` would have picked.
+
+    If return_latest=True and timestamp subfolders exist, only the latest folder is used.
     """
     # 1. locate timestamp level if exists
     subdirs = [d for d in os.listdir(story_dir)
@@ -49,7 +69,8 @@ def _collect_story_images(story_dir: str,
         # story_dir itself already contains images
         target_dirs = [story_dir]
 
-    shot_paths: dict[str] = {}
+    shot_paths: dict = {}
+    shot_frames: dict = {}
     char_paths: List[str] = []
 
     for td in target_dirs:
@@ -73,9 +94,22 @@ def _collect_story_images(story_dir: str,
         # shots
         for f in natsorted(os.listdir(shot_base)):
             fp = os.path.join(shot_base, f)
-            if _is_valid_image(fp):
+            idx = _shot_index_from_name(f)
+            if os.path.isdir(fp):
+                # nested layout: one directory per shot holding its sampled frames
+                if idx is None:
+                    continue
+                frames = [os.path.join(fp, g) for g in natsorted(os.listdir(fp))]
+                frames = [g for g in frames if _is_valid_image(g)]
+                if frames:
+                    shot_frames[idx] = frames
+                    shot_paths[idx] = frames[len(frames) // 2]
+            elif _is_valid_image(fp):
                 # some business require suffix filtering
-                shot_paths[int(f.split('_')[-1].split('.')[0])] = fp
+                if idx is None:
+                    continue
+                shot_paths[idx] = fp
+                shot_frames[idx] = [fp]
 
         # chars
         if char_base:
@@ -84,7 +118,7 @@ def _collect_story_images(story_dir: str,
                 if _is_valid_image(fp):
                     char_paths.append(fp)
 
-    return shot_paths, char_paths
+    return shot_paths, char_paths, shot_frames
 
 
 def load_outputs(
@@ -161,8 +195,8 @@ def load_outputs(
                         story_ids = natsorted([d for d in os.listdir(ts_dir) if os.path.isdir(os.path.join(ts_dir, d))], key=lambda x: int(x))
                         for sid in story_ids:
                             story_dir = os.path.join(ts_dir, sid)
-                            shot_imgs, char_imgs = _collect_story_images(story_dir, return_latest)
-                            results[str(sid)] = {"shots": shot_imgs, "chars": char_imgs}
+                            shot_imgs, char_imgs, shot_frames = _collect_story_images(story_dir, return_latest)
+                            results[str(sid)] = {"shots": shot_imgs, "chars": char_imgs, "shot_frames": shot_frames}
         else:
             # mode-first: {method}/{mode}/{language}/{timestamp}/{story_id}
             mode_candidates = modes or [d for d in os.listdir(method_dir) if os.path.isdir(os.path.join(method_dir, d))]
@@ -183,8 +217,8 @@ def load_outputs(
                         story_ids = natsorted([d for d in os.listdir(ts_dir) if os.path.isdir(os.path.join(ts_dir, d))], key=lambda x: int(x))
                         for sid in story_ids:
                             story_dir = os.path.join(ts_dir, sid)
-                            shot_imgs, char_imgs = _collect_story_images(story_dir, return_latest)
-                            results[str(sid)] = {"shots": shot_imgs, "chars": char_imgs}
+                            shot_imgs, char_imgs, shot_frames = _collect_story_images(story_dir, return_latest)
+                            results[str(sid)] = {"shots": shot_imgs, "chars": char_imgs, "shot_frames": shot_frames}
 
     return results
 if __name__ == "__main__":

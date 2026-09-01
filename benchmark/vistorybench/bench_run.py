@@ -17,7 +17,15 @@ from vistorybench.bench.quality.aesthetic_evaluator import AestheticEvaluator
 from vistorybench.bench.prompt_align.prompt_align_evaluator import PromptAlignEvaluator
 from dotenv import load_dotenv
 load_dotenv()
+# The pipeline's own .env two levels up carries GEMINI_API_KEY; loading it here means
+# the benchmark does not need a second copy of the key.
+load_dotenv(Path(__file__).resolve().parents[2] / '.env')
 
+
+# Metrics we actually report: CSD, CIDS, PromptAlign and OCCM (OCCM is produced by
+# the CIDS evaluator). Aesthetic and diversity stay available behind --metrics but are
+# off by default so a plain run does not pay for them.
+DEFAULT_METRICS = ['cids', 'csd', 'prompt_align']
 
 # Evaluator registry
 EVALUATOR_REGISTRY = {
@@ -192,7 +200,7 @@ def main():
 
     # Evaluation settings
     parser.add_argument('--method', type=str, nargs='+', default=None, help='Method name(s) to evaluate. Accept multiple values.')
-    parser.add_argument('--metrics', type=str, nargs='+', choices=list(EVALUATOR_REGISTRY.keys()), default=None, help='List of metrics to run. Runs all if not specified.')
+    parser.add_argument('--metrics', type=str, nargs='+', choices=list(EVALUATOR_REGISTRY.keys()), default=None, help=f'List of metrics to run. Defaults to {DEFAULT_METRICS}.')
     parser.add_argument('--language', type=str, choices=['en', 'ch', 'all'], default=None, help='Language to evaluate. None/all => enumerate all available languages.')
     parser.add_argument('--split', type=str, choices=['full', 'lite'], default='full', help='Dataset split to use.')
     parser.add_argument('--timestamp', type=str, default=None, help='Specific timestamp to evaluate. If omitted, enumerate all available timestamps for each language/mode.')
@@ -226,7 +234,7 @@ def main():
     outputs_root = _cli.get('outputs_path') or merged_config.get('core', {}).get('paths', {}).get('outputs', 'data/outputs')
 
     # Determine metrics
-    requested_metrics = args.metrics or list(EVALUATOR_REGISTRY.keys())
+    requested_metrics = args.metrics or DEFAULT_METRICS
 
     # Normalize methods to list
     methods_list = args.method if isinstance(args.method, (list, tuple)) else [args.method]

@@ -13,7 +13,8 @@ from .inception_resnet_v1 import InceptionResnetV1
 import sys
 from facexlib.utils.face_restoration_helper import FaceRestoreHelper
 import scipy.optimize
-from transformers import CLIPProcessor, CLIPModel
+from concurrent.futures import ThreadPoolExecutor
+from transformers import AutoImageProcessor, AutoModel, CLIPProcessor, CLIPModel
 from pathlib import Path
 
 from vistorybench.bench.base_evaluator import BaseEvaluator
@@ -105,6 +106,8 @@ class CIDSEvaluator(BaseEvaluator):
         self.dino = bundle.get('dino')
         self.clip = bundle.get('clip')
         self.clip_processor = bundle.get('clip_processor')
+        self.siglip = bundle.get('siglip')
+        self.siglip_processor = bundle.get('siglip_processor')
         self.arcface = bundle.get('arcface')
         self.arcface_provider = bundle.get('arcface_provider')
         self.facenet = bundle.get('facenet')
@@ -126,6 +129,14 @@ class CIDSEvaluator(BaseEvaluator):
         self.ref_mode = self.cids_cfg.get('ref_mode', 'origin')
         self.use_multi_face_encoder = self.cids_cfg.get('use_multi_face_encoder', True)
         self.ensemble_method = self.cids_cfg.get('ensemble_method', 'average')
+
+        # Which image encoder scores character identity. SigLIP replaces CLIP as the
+        # default: the characters here are drawn, so the face encoders never fire and
+        # SigLIP separates near-identical anime designs better than CLIP does.
+        encoders_cfg = self.cids_cfg.get('encoders', {}) or {}
+        self.image_encoder = encoders_cfg.get('image', 'siglip')
+        # When set, every character uses this encoder regardless of its tag.
+        self.encoder_override = encoders_cfg.get('override') or None
         
         dino = self.cids_cfg.get('detection', {}).get('dino', {})
         if 'box_threshold' in dino:
@@ -159,6 +170,15 @@ class CIDSEvaluator(BaseEvaluator):
         self.gpt_workers = int(gpt_cfg.get('workers', 1) or 1)
         self._pa_skip_warned = False
         self._pa_prompt_path = 'vistorybench/bench/prompt_align/user_prompts/user_prompt_single_character_text_align.txt'
+        # Repeated VLM scoring, matching the prompt_align evaluator.
+        self.pa_repeats = int(pa_cfg.get('repeats', 5) or 1)
+        self.pa_temperature = float(pa_cfg.get('temperature', 1.0))
+        self.pa_top_p = float(pa_cfg.get('top_p', 1.0))
+
+        # OCCM detection prompt: deliberately plain, so the same words are used on the
+        # ground-truth manga panel and on the generated shot.
+        occm_cfg = self.cids_cfg.get('occm', {}) or {}
+        self.OCCM_PROMPT = occm_cfg.get('prompt', 'character')
 
         # Load models on initialization
         self._load_models(self.pretrain_path, self.device)
@@ -168,12 +188,15 @@ class CIDSEvaluator(BaseEvaluator):
         pretrain_path = Path(pretrain_path)
 
         clip_model_id = "openai/clip-vit-large-patch14"
+        siglip_model_id = "google/siglip-so400m-patch14-384"
         if isinstance(self.cids_cfg, dict):
             enc = self.cids_cfg.get('encoders')
             if isinstance(enc, dict) and 'clip' in enc and 'model_id' in enc['clip']:
                 clip_model_id = enc['clip']['model_id']
+            if isinstance(enc, dict) and 'siglip' in enc and 'model_id' in enc['siglip']:
+                siglip_model_id = enc['siglip']['model_id']
 
-        cache_key = (str(pretrain_path.resolve()), str(device), clip_model_id)
+        cache_key = (str(pretrain_path.resolve()), str(device), clip_model_id, siglip_model_id)
         cached_bundle = self._shared_model_cache.get(cache_key)
 
         if cached_bundle:
@@ -202,6 +225,19 @@ class CIDSEvaluator(BaseEvaluator):
                 print(f"Could not load CLIP model: {e}")
                 bundle['clip'] = None
                 bundle['clip_processor'] = None
+
+            # Load SigLIP
+            try:
+                siglip_path = pretrain_path / siglip_model_id
+                bundle['siglip'] = AutoModel.from_pretrained(siglip_path).to(device).eval()
+                # Image processor only: the full AutoProcessor drags in SiglipTokenizer,
+                # which needs sentencepiece, and we never encode text with it.
+                bundle['siglip_processor'] = AutoImageProcessor.from_pretrained(siglip_path)
+                print("SigLIP model loaded successfully")
+            except Exception as e:
+                print(f"Could not load SigLIP model: {e}")
+                bundle['siglip'] = None
+                bundle['siglip_processor'] = None
 
             # Load ArcFace
             arcface_model = None
@@ -273,10 +309,11 @@ class CIDSEvaluator(BaseEvaluator):
 
     def _get_encoder_name(self, char_tag):
         """Select appropriate encoder based on character tag and configuration"""
+        if self.encoder_override:
+            return self.encoder_override
         if char_tag == "realistic_human":
             return "face_mix" if self.use_multi_face_encoder else "arcface"
-        else:
-            return "clip"
+        return self.image_encoder
 
     def _get_arcface_features(self, img_np, det_thresh=None):
         """Extract facial features using ArcFace model"""
@@ -361,13 +398,22 @@ class CIDSEvaluator(BaseEvaluator):
         total_imgs = len(img)
         valid_indices = list(range(total_imgs))
 
-        if encoder_name == "clip":
-            inputs = self.clip_processor(images=img, return_tensors='pt', padding=True)
+        if encoder_name in ("clip", "siglip"):
+            if encoder_name == "siglip":
+                model, processor = self.siglip, self.siglip_processor
+            else:
+                model, processor = self.clip, self.clip_processor
+            if model is None or processor is None:
+                raise RuntimeError(
+                    f"{encoder_name} encoder requested but the model failed to load; "
+                    f"check data/pretrain for it."
+                )
+            inputs = processor(images=img, return_tensors='pt')
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
             with torch.no_grad():
-                image_features = self.clip.get_image_features(**inputs)
-            image_features = F.normalize(image_features, p=2, dim=1)
+                image_features = model.get_image_features(**inputs)
+            image_features = F.normalize(image_features.float(), p=2, dim=1)
 
         elif encoder_name == "arcface":
             image_features = []
@@ -625,6 +671,177 @@ class CIDSEvaluator(BaseEvaluator):
             print(f"\033[31mError in crop_img for {img_src}: {str(e)}\033[0m")
             return ([] , []) if return_boxes else []
 
+    # ------------------------------------------------------------------
+    # OCCM: how well the number of characters on screen matches the source
+    # ------------------------------------------------------------------
+    PANEL_DIR_NAME = 'manga_panels'
+
+    def _panel_path(self, story_id: str, shot_index: int):
+        """Ground-truth manga panel for a shot, or None when the story has no panels."""
+        panel_dir = os.path.join(self.dataset_path, 'ViStory', str(story_id), self.PANEL_DIR_NAME)
+        if not os.path.isdir(panel_dir):
+            return None
+        for stem in (f'panel{shot_index}', f'panel_{shot_index}', f'shot_{shot_index}', str(shot_index)):
+            for ext in ('.png', '.jpg', '.jpeg', '.webp'):
+                candidate = os.path.join(panel_dir, stem + ext)
+                if os.path.exists(candidate):
+                    return candidate
+        return None
+
+    def _expected_character_count(self, story_id: str, shot_index: int, script_count: int) -> int:
+        """
+        Reference character count for OCCM.
+
+        Counted by running GroundingDINO with the same plain "character" prompt over
+        the ground-truth manga panel, so the reference and the generated shot are
+        measured by the same detector at the same threshold. The script's character
+        list used to be the reference, but it lists characters the panel only implies
+        (named but off-panel, or drawn too small to read), which charged the generator
+        for characters the source art does not actually show.
+
+        Falls back to the script count when the story ships no panel for this shot.
+        """
+        cache = getattr(self, '_panel_count_cache', None)
+        if cache is None:
+            cache = self._panel_count_cache = {}
+        key = (str(story_id), int(shot_index))
+        if key in cache:
+            return cache[key]
+
+        panel = self._panel_path(story_id, shot_index)
+        if panel is None:
+            if not getattr(self, '_panel_missing_warned', set()) or str(story_id) not in self._panel_missing_warned:
+                if not hasattr(self, '_panel_missing_warned'):
+                    self._panel_missing_warned = set()
+                self._panel_missing_warned.add(str(story_id))
+                print(f"\033[33mOCCM: no {self.PANEL_DIR_NAME}/ for story {story_id}; "
+                      f"falling back to the script's character count.\033[0m")
+            cache[key] = int(script_count)
+            return cache[key]
+
+        _, logits, _, _ = self.dino_detect(panel, self.OCCM_PROMPT)
+        count = int(len(logits))
+        print(f"OCCM: story {story_id} shot {shot_index}: {count} character(s) detected in {os.path.basename(panel)}")
+        cache[key] = count
+        return count
+
+    @staticmethod
+    def _occm_score(detected: int, expected: int) -> float:
+        """
+        100 at an exact match, decaying with the relative miscount.
+
+        `expected` can now be 0 (a panel GroundingDINO finds nobody in), so the
+        denominator is floored at 1 instead of collapsing the score to 0 for any
+        detection at all.
+        """
+        epsilon = 1e-6
+        denom = epsilon + max(int(expected), 1)
+        return 100 * float(np.exp(-float(abs(int(detected) - int(expected))) / denom))
+
+    # ------------------------------------------------------------------
+    # Per-frame character detection and matching
+    # ------------------------------------------------------------------
+    def _match_frame(self, frame_path, shot_chars, Characters, ref_feats_by_char, prompt):
+        """
+        Detect characters in one frame and assign them to the shot's cast.
+
+        Returns (matches, detected_count) where `matches` maps character key ->
+        {"box", "cross_sim", "crop"} for the characters that got a box, and
+        `detected_count` is how many boxes GroundingDINO produced (what OCCM counts).
+        """
+        boxes, logits, _, _ = self.dino_detect(frame_path, prompt)
+        candidate_boxes, candidate_crops = [], []
+        if len(logits) > 0:
+            # Use all detected boxes (sorted by confidence) to reflect actual on-screen characters
+            _, indices = torch.sort(logits, descending=True)
+            cropped_chunk, filtered_boxes = self.crop_img(frame_path, boxes[indices], return_boxes=True)
+            keep_n = min(len(filtered_boxes), len(cropped_chunk))
+            candidate_crops = cropped_chunk[:keep_n]
+            candidate_boxes = filtered_boxes[:keep_n]
+        detected_count = len(candidate_boxes)
+
+        if not candidate_crops:
+            return {}, detected_count
+
+        boxes_t = torch.tensor(candidate_boxes, dtype=torch.float32)
+        num_candidates = len(candidate_crops)
+        num_chars = len(shot_chars)
+        sim_scores = torch.full((num_chars, num_candidates), -1e6, dtype=torch.float32)
+        char_feat_cache = {}
+        char_sim_cache = {}
+        valid_rows = [False] * num_chars
+
+        # Build similarity matrix row for each character with its dedicated encoder
+        for row_idx, char in enumerate(shot_chars):
+            enc_name = self._get_encoder_name(Characters[char]["tag"])
+            output_feats, valid_indices = self.get_char_feat(
+                candidate_crops, encoder_name=enc_name, return_indices=True
+            )
+            char_feat_cache[char] = {"features": output_feats, "indices": valid_indices}
+            if output_feats is None or len(valid_indices) == 0:
+                continue
+
+            out_feats_for_sim = output_feats.to(self.device) if isinstance(output_feats, torch.Tensor) else output_feats
+            ref = ref_feats_by_char[char]
+            ref_feats_for_sim = ref.to(self.device) if isinstance(ref, torch.Tensor) else ref
+            similarity_matrix = self._compute_multimodel_similarity_matrix(
+                out_feats_for_sim, ref_feats_for_sim, method=self.ensemble_method
+            )
+            if similarity_matrix is None or not isinstance(similarity_matrix, torch.Tensor) or similarity_matrix.numel() == 0:
+                continue
+
+            similarity_matrix = similarity_matrix.detach().cpu()
+            char_sim_cache[char] = {cand_idx: similarity_matrix[idx] for idx, cand_idx in enumerate(valid_indices)}
+            best_scores = similarity_matrix.max(dim=1).values
+            for local_idx, cand_idx in enumerate(valid_indices):
+                sim_scores[row_idx, cand_idx] = best_scores[local_idx]
+            valid_rows[row_idx] = True
+
+        if not any(valid_rows):
+            return {}, detected_count
+
+        row_ind, col_ind = scipy.optimize.linear_sum_assignment(-sim_scores.cpu().numpy())
+        matches = {}
+        for r, c in zip(row_ind, col_ind):
+            if r >= num_chars or c >= num_candidates or not valid_rows[r]:
+                continue
+            char = shot_chars[r]
+            # 仅接受当前角色具备特征的候选框，避免后续缺失特征
+            if c not in (char_feat_cache.get(char, {}).get("indices") or []):
+                continue
+            sim_row = char_sim_cache.get(char, {}).get(c)
+            cross_sim = round(sim_row.mean().item(), 4) if sim_row is not None else 0.0
+            matches[char] = {
+                "box": [round(x, 3) for x in boxes_t[c].tolist()],
+                "cross_sim": cross_sim,
+                "crop": candidate_crops[c],
+            }
+        return matches, detected_count
+
+    def _score_single_character_action(self, system_prompt, shot, character_name, crop):
+        """VLM score for one character's action, repeated so the spread is measurable."""
+        from vistorybench.bench.prompt_align.gptv_utils import (
+            load_img_content, repeat_score, summarize_scores,
+        )
+        prompt_text = shot.get('script') or shot.get('character_action') or shot.get('action') or shot.get('description') or ''
+        transcript = [
+            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+            {"role": "user", "content": [
+                {"type": "text", "text": prompt_text},
+                {"type": "text", "text": f"Evaluated Character Name is {character_name}"},
+                load_img_content(crop, image_mode='pil'),
+            ]},
+        ]
+        try:
+            samples = repeat_score(
+                transcript, self.gpt_api_pkg, repeats=self.pa_repeats,
+                temp=self.pa_temperature, top_p=self.pa_top_p
+            )
+        except Exception as e:
+            print(f"\033[33mWarning: single_character_action scoring failed for {character_name}: {e}\033[0m")
+            samples = []
+        return summarize_scores(samples)
+
     def evaluate(self, method: str, story_id: str, **kwargs):
 
         # Create a directory for intermediate results (aligned to unified result schema)
@@ -632,8 +849,6 @@ class CIDSEvaluator(BaseEvaluator):
         self.mid_result_dir = os.path.join(run_dir, 'metrics', 'cids', 'mid_results', story_id)
         os.makedirs(self.mid_result_dir, exist_ok=True)
 
-        # GPT-V utils import (local) for single_character_action scoring
-        from vistorybench.bench.prompt_align.gptv_utils import gptv_query, load_img_content
         story_data = self.story_dataset.load_story(story_id)
         shots = story_data['shots']
         Characters = story_data['characters']
@@ -746,13 +961,22 @@ class CIDSEvaluator(BaseEvaluator):
             ref_copy_paste_feats[char] = cp_feats
 
         results = {"cids": {}}
+        # All matched crops (every sampled frame) -> cross similarity and copy-paste.
         char_pil_imgs = {}
+        # One crop per shot (the shot's representative frame) -> self consistency, so
+        # self-CIDS keeps meaning "how stable is this character across shots" and stays
+        # comparable between a storyboard run and a 10-frame-per-shot video run.
+        char_rep_imgs = {}
         occm_scores = []
+        occm_details = {}
         new_shot_indices = []
 
         # Single-character action alignment (per-shot, per-character)
         pa_detailed_scores = {}
         pa_story_scores = []
+        pa_story_stds = []
+        pa_tasks = []
+        pa_shot_scores = {}
         model_type, api_key, base_url = self.gpt_api_pkg if hasattr(self, 'gpt_api_pkg') else (None, '', '')
         pa_available = bool(api_key) and bool(base_url)
         if not pa_available and not getattr(self, '_pa_skip_warned', False):
@@ -767,243 +991,144 @@ class CIDSEvaluator(BaseEvaluator):
                 print(f"\033[33mWarning: failed to read single_character_action prompt file: {_e}\033[0m")
                 pa_available = False
 
-
         for shot in shots:
             shot_results = {}
             pa_char_scores = {}
+            pa_char_stds = {}
             shot_id = int(shot["index"])
 
             if not story_outputs['shots'].get(shot_id):
                 print(f"Warning: No output image for shot_id {shot_id}. Skipping...")
                 continue
 
-            # if shot_id >= len(story_outputs['shots']):
-            #     print(f"Warning: shot_id {shot_id} is out of bounds. Skipping...")
-            #     continue
-            target_img_path = story_outputs['shots'][shot_id]
+            frames = self.get_shot_frames(story_outputs, shot_id)
+            frames = [f for f in frames if f and os.path.exists(f)]
 
-            if not os.path.exists(target_img_path):
-                print(f"\033[31mError: Image file not found: {target_img_path}. Skipping shot {shot_id}.\033[0m")
-                for char in shot['character_key']:
-                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
-                E = len(shot['character_key']); D = 0; epsilon = 1e-6
-                occm_scores.append(100 * np.exp(-float(abs(D - E)) / (epsilon + E)))
-                results.update({f"shot-{shot_id}": shot_results})
-                continue
-
-            # Prepare shared structures for Hungarian matching
             shot_chars = shot['character_key']
-            expected_chars = len(shot_chars)
             if not shot_chars:
                 continue
+
+            # OCCM reference: characters GroundingDINO finds in the ground-truth manga
+            # panel, falling back to the script's character list when no panel exists.
+            expected_chars = self._expected_character_count(story_id, shot_id, len(shot_chars))
+
+            if not frames:
+                print(f"\033[31mError: No frames found for shot {shot_id}. Skipping shot.\033[0m")
+                for char in shot_chars:
+                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
+                occm_scores.append(self._occm_score(0, expected_chars))
+                results.update({f"shot-{shot_id}": shot_results})
+                continue
+
             for char in shot_chars:
-                if char not in char_pil_imgs:
-                    char_pil_imgs[char] = []
+                char_pil_imgs.setdefault(char, [])
+                char_rep_imgs.setdefault(char, [])
 
-            candidate_boxes = []
-            candidate_crops = []
-            candidate_count = 0
             common_prompt = TEXT_PROMPT.get(shot_chars[0], "character") if isinstance(TEXT_PROMPT, dict) else "character"
-            boxes, logits, _, _ = self.dino_detect(target_img_path, common_prompt)
-            if len(logits) > 0:
-                # Use all detected boxes (sorted by confidence) to reflect actual on-screen characters
-                _, indices = torch.sort(logits, descending=True)
-                selected_boxes = boxes[indices]
-                cropped_chunk, filtered_boxes = self.crop_img(target_img_path, selected_boxes, return_boxes=True)
-                if len(filtered_boxes) != len(cropped_chunk):
-                    keep_n = min(len(filtered_boxes), len(cropped_chunk))
-                    cropped_chunk = cropped_chunk[:keep_n]
-                    filtered_boxes = filtered_boxes[:keep_n]
-                candidate_boxes.extend(filtered_boxes)
-                candidate_crops.extend(cropped_chunk)
-            candidate_count = len(candidate_boxes)
+            rep_idx = len(frames) // 2
 
-            if not candidate_crops:
-                for char in shot_chars:
-                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
-                epsilon = 1e-6
-                occm_scores.append(100 * np.exp(-float(abs(candidate_count - expected_chars)) / (epsilon + expected_chars)))
-                results.update({f"shot-{shot_id}": shot_results})
-                new_shot_indices.append(shot_id)
-                continue
-
-            boxes = torch.tensor(candidate_boxes, dtype=torch.float32)
-            cropped_imgs = candidate_crops
-
-            num_candidates = len(cropped_imgs)
-            num_chars = len(shot_chars)
-            sim_scores = torch.full((num_chars, num_candidates), -1e6, dtype=torch.float32)
-            char_feat_cache = {}
-            char_sim_cache = {}
-            valid_rows = [False] * num_chars
-
-            # Build similarity matrix row for each character with its dedicated encoder
-            for row_idx, char in enumerate(shot_chars):
-                enc_name = self._get_encoder_name(Characters[char]["tag"])
-                output_feats, valid_indices = self.get_char_feat(
-                    cropped_imgs,
-                    encoder_name=enc_name,
-                    return_indices=True
+            # Score every sampled frame independently, then average across frames.
+            frame_matches = []
+            detected_counts = []
+            for frame_path in frames:
+                matches, detected = self._match_frame(
+                    frame_path, shot_chars, Characters, ref_clip_feats, common_prompt
                 )
-                char_feat_cache[char] = {"features": output_feats, "indices": valid_indices}
-                if output_feats is None or len(valid_indices) == 0:
-                    continue
+                frame_matches.append(matches)
+                detected_counts.append(detected)
 
-                out_feats_for_sim = output_feats.to(self.device) if isinstance(output_feats, torch.Tensor) else output_feats
-                ref_feats_for_sim = ref_clip_feats[char].to(self.device) if isinstance(ref_clip_feats[char], torch.Tensor) else ref_clip_feats[char]
-                similarity_matrix = self._compute_multimodel_similarity_matrix(
-                    out_feats_for_sim,
-                    ref_feats_for_sim,
-                    method=self.ensemble_method
+            occm_frame_scores = [self._occm_score(d, expected_chars) for d in detected_counts]
+            occm_shot = sum(occm_frame_scores) / len(occm_frame_scores)
+            occm_scores.append(occm_shot)
+            occm_details[shot_id] = {
+                "expected": expected_chars,
+                "detected_per_frame": detected_counts,
+                "score": round(occm_shot, 4),
+            }
+
+            for char in shot_chars:
+                sims = []
+                boxes_seen = []
+                for f_i, matches in enumerate(frame_matches):
+                    hit = matches.get(char)
+                    if hit is None:
+                        sims.append(0.0)
+                        continue
+                    sims.append(hit["cross_sim"])
+                    boxes_seen.append(hit["box"])
+                    char_pil_imgs[char].append(hit["crop"])
+                    hit["crop"].save(f"{self.mid_result_dir}/shot{shot_id:02d}-{char}-f{f_i:02d}.png")
+
+                rep_hit = frame_matches[rep_idx].get(char) or next(
+                    (m[char] for m in frame_matches if m.get(char)), None
                 )
-                if similarity_matrix is None or not isinstance(similarity_matrix, torch.Tensor) or similarity_matrix.numel() == 0:
-                    continue
+                if rep_hit is not None:
+                    char_rep_imgs[char].append(rep_hit["crop"])
 
-                similarity_matrix = similarity_matrix.detach().cpu()
-                sim_rows = {cand_idx: similarity_matrix[idx] for idx, cand_idx in enumerate(valid_indices)}
-                char_sim_cache[char] = sim_rows
-                best_scores = similarity_matrix.max(dim=1).values
-                for local_idx, cand_idx in enumerate(valid_indices):
-                    sim_scores[row_idx, cand_idx] = best_scores[local_idx]
-                valid_rows[row_idx] = True
+                mean_sim = round(sum(sims) / len(sims), 4) if sims else 0.0
+                shot_results.update({
+                    char: {
+                        "box": rep_hit["box"] if rep_hit else "null",
+                        "cross_sim": mean_sim,
+                        "num_frames": len(frames),
+                        "num_frames_matched": len(boxes_seen),
+                    }
+                })
 
-            if not any(valid_rows):
-                for char in shot_chars:
-                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
-                epsilon = 1e-6
-                occm_scores.append(100 * np.exp(-float(abs(candidate_count - expected_chars)) / (epsilon + expected_chars)))
-                results.update({f"shot-{shot_id}": shot_results})
-                new_shot_indices.append(shot_id)
-                continue
-
-            sim_np = sim_scores.cpu().numpy()
-            cost_matrix = -sim_np
-            row_ind, col_ind = scipy.optimize.linear_sum_assignment(cost_matrix)
-            assignments = {}
-            for r, c in zip(row_ind, col_ind):
-                if r >= len(shot_chars) or c >= num_candidates:
-                    continue
-                if not valid_rows[r]:
-                    continue
-                # 仅接受当前角色具备特征的候选框，避免后续缺失特征
-                char_for_row = shot_chars[r]
-                cache_entry = char_feat_cache.get(char_for_row, {})
-                valid_indices = cache_entry.get("indices") or []
-                if c not in valid_indices:
-                    continue
-                assignments[r] = c
-
-            for row_idx, char in enumerate(shot_chars):
-                if row_idx not in assignments:
-                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
-                    continue
-                boxes_id = assignments[row_idx]
-                if boxes_id >= len(boxes):
-                    shot_results.update({char: {"box": "null", "cross_sim": 0.0}})
-                    continue
-
-                boxes_to_write = [round(x, 3) for x in boxes[boxes_id].tolist()]
-                sim_row_map = char_sim_cache.get(char, {})
-                sim_row = sim_row_map.get(boxes_id)
-                if sim_row is not None:
-                    shot_cross_sim = round(sim_row.mean().item(), 4)
-                else:
-                    cache_entry = char_feat_cache.get(char, {})
-                    if isinstance(cache_entry, dict):
-                        output_feats = cache_entry.get("features")
-                        cached_indices = cache_entry.get("indices") or []
-                    else:
-                        output_feats = cache_entry
-                        if isinstance(output_feats, torch.Tensor):
-                            cached_indices = list(range(output_feats.shape[0]))
-                        elif isinstance(output_feats, list):
-                            cached_indices = list(range(len(output_feats)))
-                        else:
-                            cached_indices = []
-                    try:
-                        if output_feats is None or boxes_id not in cached_indices:
-                            raise ValueError("Missing cached features for candidate")
-                        local_idx = cached_indices.index(boxes_id)
-                        if isinstance(output_feats, torch.Tensor):
-                            matched_output_feat = output_feats[local_idx:local_idx+1]
-                        else:
-                            matched_output_feat = [output_feats[local_idx]]
-                        cross_sim_matrix = self._compute_multimodel_similarity_matrix(
-                            matched_output_feat,
-                            ref_clip_feats[char],
-                            method=self.ensemble_method
-                        )
-                        shot_cross_sim = round(cross_sim_matrix.mean().item(), 4) if isinstance(cross_sim_matrix, torch.Tensor) and cross_sim_matrix.numel() > 0 else 0.0
-                    except Exception as e:
-                        print(f"\033[33mWarning: Failed to compute cross_sim for {char} in shot {shot_id}: {str(e)}\033[0m")
-                        shot_cross_sim = 0.0
-
-                shot_results.update({char: {"box": boxes_to_write, "cross_sim": shot_cross_sim}})
-                char_pil_imgs[char].append(cropped_imgs[boxes_id])
-                cropped_imgs[boxes_id].save(f"{self.mid_result_dir}/shot{shot_id:02d}-{char}.png")
-
-                # Single-character action alignment via GPT-V (only for matched characters)
+                # Single-character action alignment via GPT-V, scored on the
+                # representative crop and repeated so we get a mean and a spread.
+                # Queued rather than called here: at 5 repeats per character these are
+                # the slowest part of the story by far, and they have no reason to run
+                # one at a time.
                 if pa_available and single_prompt_text:
-                    try:
-                        prompt_text = shot.get('script') or shot.get('character_action') or shot.get('action') or shot.get('description') or ''
-                        user_content = [
-                            {"type": "text", "text": prompt_text},
-                            {"type": "text", "text": f"Evaluated Character Name is {Characters[char]['name']}"},
-                            load_img_content(cropped_imgs[boxes_id], image_mode='pil')
-                        ]
-                        transcript = [{"role": "system", "content": [{"type": "text", "text": single_prompt_text}]}, {"role": "user", "content": user_content}]
-                        import re
-                        max_retry = 10
-                        temp_start = 0.0
-                        score_val = 0
-                        while max_retry > 0:
-                            try:
-                                response = gptv_query(
-                                    transcript,
-                                    top_p=0.2,
-                                    temp=temp_start,
-                                    model_type=model_type,
-                                    api_key=api_key,
-                                    base_url=base_url,
-                                )
-                                pattern = r"(score|Score):\s*[a-zA-Z]*\s*(\d+)"
-                                matches = re.findall(pattern, response)
-                                if matches:
-                                    score_val = int(matches[0][1])
-                                    break
-                                else:
-                                    temp_start += 0.1
-                                    max_retry -= 1
-                            except Exception as e:
-                                print(f"\033[33mWarning: single_character_action scoring failed for story {story_id}, shot {shot_id}, char {char}: {e}\033[0m")
-                                temp_start += 0.1
-                                max_retry -= 1
-                        pa_char_scores[Characters[char]['name']] = int(score_val)
-                    except Exception as _e:
-                        print(f"\033[33mWarning: single_character_action internal error for story {story_id}, shot {shot_id}, char {char}: {_e}\033[0m")
-                else:
-                    pa_char_scores[Characters[char]['name']] = 0
+                    if rep_hit is not None:
+                        pa_tasks.append((shot_id, Characters[char]['name'], shot, rep_hit["crop"]))
+                    else:
+                        pa_char_scores[Characters[char]['name']] = 0
+                        pa_char_stds[Characters[char]['name']] = 0.0
 
-            # OCCM for new shot: compare expected vs detected character counts
-            E = expected_chars
-            D = candidate_count
-            epsilon = 1e-6
-            occm_scores.append(100 * np.exp(-float(abs(D - E)) / (epsilon + E)))
-
-            # Aggregate single_character_action for this shot
             if pa_available:
-                if pa_char_scores:
-                    shot_pa_mean = int(round(sum(pa_char_scores.values()) / len(pa_char_scores)))
-                else:
-                    shot_pa_mean = 0
-                pa_detailed_scores[shot_id] = {
-                    "single_character_action": shot_pa_mean,
-                    "single_character_action_char": pa_char_scores.copy()
-                }
-                pa_story_scores.append(shot_pa_mean)
+                pa_shot_scores[shot_id] = (pa_char_scores, pa_char_stds)
 
             results.update({f"shot-{shot_id}": shot_results})
             new_shot_indices.append(shot_id)
+
+        # Run the queued single_character_action scorings in parallel, then fold them
+        # back into their shots.
+        if pa_available and pa_tasks:
+            def score_task(task):
+                shot_id, char_name, shot, crop = task
+                return shot_id, char_name, self._score_single_character_action(
+                    single_prompt_text, shot, char_name, crop
+                )
+
+            workers = max(1, int(getattr(self, 'gpt_workers', 1) or 1))
+            print(f"CIDS: scoring {len(pa_tasks)} character action item(s) x {self.pa_repeats} "
+                  f"repeats for story {story_id}, {workers} workers.")
+            if workers > 1:
+                with ThreadPoolExecutor(max_workers=workers) as ex:
+                    task_results = list(ex.map(score_task, pa_tasks))
+            else:
+                task_results = [score_task(t) for t in pa_tasks]
+
+            for shot_id, char_name, stats in task_results:
+                scores, stds = pa_shot_scores.setdefault(shot_id, ({}, {}))
+                scores[char_name] = round(stats["mean"], 4)
+                stds[char_name] = round(stats["std"], 4)
+
+        if pa_available:
+            for shot_id in sorted(pa_shot_scores):
+                scores, stds = pa_shot_scores[shot_id]
+                shot_pa_mean = sum(scores.values()) / len(scores) if scores else 0.0
+                shot_pa_std = sum(stds.values()) / len(stds) if stds else 0.0
+                pa_detailed_scores[shot_id] = {
+                    "single_character_action": round(shot_pa_mean, 4),
+                    "single_character_action_std": round(shot_pa_std, 4),
+                    "single_character_action_char": dict(scores),
+                    "single_character_action_char_std": dict(stds),
+                }
+                pa_story_scores.append(shot_pa_mean)
+                pa_story_stds.append(shot_pa_std)
 
         # Aggregate per-character and story metrics using char_pil_imgs (from processed + new)
         copy_paste_cnt = 0
@@ -1016,10 +1141,16 @@ class CIDSEvaluator(BaseEvaluator):
                     results["cids"].update({char: {"cross": 0.0, "self": 0.0}})
                     continue
 
+                # Cross uses every sampled frame; self uses one crop per shot so it
+                # keeps measuring shot-to-shot drift rather than within-clip stillness.
                 cross_similarity_matrix = self._compute_multimodel_similarity_matrix(char_feats, ref_clip_feats[char], method=self.ensemble_method)
                 cross_sim = cross_similarity_matrix.mean().item()
 
-                self_similarity_matrix = self._compute_multimodel_similarity_matrix(char_feats, char_feats, method=self.ensemble_method)
+                rep_imgs = char_rep_imgs.get(char) or char_pil_imgs[char]
+                rep_feats = self.get_char_feat(rep_imgs, encoder_name=enc_name)
+                if rep_feats is None:
+                    rep_feats = char_feats
+                self_similarity_matrix = self._compute_multimodel_similarity_matrix(rep_feats, rep_feats, method=self.ensemble_method)
                 if self_similarity_matrix.shape[0] > 1:
                     indices = torch.triu_indices(self_similarity_matrix.shape[0], self_similarity_matrix.shape[1], offset=1)
                     self_sim = self_similarity_matrix[indices[0], indices[1]].mean().item()
@@ -1075,12 +1206,20 @@ class CIDSEvaluator(BaseEvaluator):
                 "occm": occm_mean
             }
             if pa_available and pa_story_scores:
-                results["metrics"]["single_character_action"] = int(round(sum(pa_story_scores) / len(pa_story_scores)))
+                results["metrics"]["single_character_action"] = round(sum(pa_story_scores) / len(pa_story_scores), 4)
+                results["metrics"]["single_character_action_std"] = round(sum(pa_story_stds) / len(pa_story_stds), 4)
         except Exception as _e:
             print(f"\033[33mWarning: failed to compute CIDS story metrics for {story_id}: {_e}\033[0m")
 
         if pa_available:
             results["detailed_scores"] = pa_detailed_scores
+        results["occm_details"] = occm_details
+        results["scoring"] = {"repeats": self.pa_repeats, "temperature": self.pa_temperature,
+                              "top_p": self.pa_top_p,
+                              "encoder": self.encoder_override or self.image_encoder,
+                              "occm_prompt": self.OCCM_PROMPT,
+                              "box_threshold": self.BOX_TRESHOLD,
+                              "text_threshold": self.TEXT_TRESHOLD}
         results["new_shot_indices"] = new_shot_indices
         print(f"CIDS evaluation complete for story: {story_id}")
         return results
@@ -1117,6 +1256,16 @@ class CIDSEvaluator(BaseEvaluator):
                                 "status": "complete",
                             }
                             items.append(item)
+                # OCCM item records: what the panel showed vs what the shot showed
+                for shot_idx, det in (story_result.get("occm_details") or {}).items():
+                    items.append({
+                        "metric": {"name": "cids", "submetric": "occm"},
+                        "scope": {"level": "item", "story_id": str(story_id), "shot_index": shot_idx},
+                        "value": det.get("score"),
+                        "extras": {"expected": det.get("expected"),
+                                   "detected_per_frame": det.get("detected_per_frame")},
+                        "status": "complete",
+                    })
                 # New PromptAlign single_character_action item records per character (if available)
                 detailed = story_result.get("detailed_scores")
                 if isinstance(detailed, dict):
@@ -1128,6 +1277,7 @@ class CIDSEvaluator(BaseEvaluator):
                                     "metric": {"name": "prompt_align", "submetric": "single_character_action"},
                                     "scope": {"level": "item", "story_id": str(story_id), "shot_index": shot_idx, "character_name": char_name},
                                     "value": score,
+                                    "extras": {"std": ((dims or {}).get("single_character_action_char_std") or {}).get(char_name)},
                                     "status": "complete",
                                 }
                                 items.append(item)
