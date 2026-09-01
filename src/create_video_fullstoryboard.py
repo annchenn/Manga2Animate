@@ -34,6 +34,7 @@ class PolicyViolationError(RuntimeError):
 IMGBB_API_KEY         = os.getenv("IMGBB_API_KEY")
 DASHSCOPE_API_KEY     = os.getenv("DASHSCOPE_API_KEY")
 ARK_API_KEY           = os.getenv("ARK_API_KEY")
+MINIMAX_API_KEY       = os.getenv("MINIMAX_API_KEY")
 GOOGLE_CLOUD_PROJECT  = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GOOGLE_CLOUD_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
@@ -43,10 +44,19 @@ GEMINI_REVIEW_MODEL = os.getenv("VIDEO_REVIEW_MODEL", "gemini-3.1-pro-preview")
 VIDEO_DURATION = 15  # fixed duration for full storyboard video
 
 def _detect_model_type(model_str):
-    return "wan" if "wan" in model_str.lower() else "seedance"
+    m = model_str.lower()
+    if "wan" in m:
+        return "wan"
+    if "minimax" in m or "hailuo" in m or m.startswith("h3"):
+        return "minimax"
+    return "seedance"
 
 WAN_URL      = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
 SEEDANCE_URL = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
+MINIMAX_URL  = "https://api.minimax.io/v2/video_generation"
+MINIMAX_QUERY_URL = "https://api.minimax.io/v2/query/video_generation"
+# MiniMax-H3 caps the text prompt at 7000 characters.
+MINIMAX_PROMPT_LIMIT = 7000
 
 PROJECT_ROOT         = Path(__file__).resolve().parents[1]
 PROMPT_FILE          = PROJECT_ROOT / "prompts" / "video_generation_storyboard.txt"
@@ -176,17 +186,73 @@ def poll_seedance(task_id, interval=15, timeout=1800):
     raise TimeoutError(f"Polling timed out after {timeout}s")
 
 # ======================
+# MINIMAX API
+# ======================
+def submit_minimax(prompt, image_url, duration):
+    if len(prompt) > MINIMAX_PROMPT_LIMIT:
+        raise RuntimeError(
+            f"Prompt is {len(prompt)} chars, over the MiniMax limit of {MINIMAX_PROMPT_LIMIT}"
+        )
+    headers = {
+        "Authorization": f"Bearer {MINIMAX_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": VIDEO_GEN_MODEL,
+        "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": image_url}, "role": "reference_image"},
+        ],
+        "duration": duration,
+        "resolution": "768P",
+        "ratio": "16:9",
+    }
+    res = requests.post(MINIMAX_URL, headers=headers, json=payload)
+    res.raise_for_status()
+    data = res.json()
+    task_id = data.get("task_id") or data.get("id")
+    if not task_id:
+        raise RuntimeError(f"MiniMax submission returned no task id: {data}")
+    return task_id
+
+
+def poll_minimax(task_id, interval=15, timeout=1800):
+    headers = {"Authorization": f"Bearer {MINIMAX_API_KEY}"}
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        res = requests.get(f"{MINIMAX_QUERY_URL}/{task_id}", headers=headers)
+        res.raise_for_status()
+        # v2 nests everything under "task": {id, status, error, content: {url}, ...}
+        task = res.json().get("task", {})
+        status = (task.get("status") or "").lower()
+        log.info(f"Task ...{task_id[-8:]} → {status}")
+        if status == "succeeded":
+            return task["content"]["url"]
+        if status in ("failed", "cancelled"):
+            error = task.get("error", {}) or {}
+            blob = f"{error.get('code', '')} {error.get('message', '')}".lower()
+            if "sensitive" in blob or "policy" in blob or "violat" in blob:
+                raise PolicyViolationError(task_id, error.get("message", "Policy violation"))
+            raise RuntimeError(f"Task {task_id} failed: {task}")
+        time.sleep(interval)
+    raise TimeoutError(f"Polling timed out after {timeout}s")
+
+# ======================
 # MODEL DISPATCH
 # ======================
 def submit_task(model, prompt, image_url, duration):
     if model == "wan":
         return submit_wan(prompt, image_url, duration)
+    if model == "minimax":
+        return submit_minimax(prompt, image_url, duration)
     return submit_seedance(prompt, image_url, duration)
 
 
 def poll_task(model, task_id):
     if model == "wan":
         return poll_wan(task_id)
+    if model == "minimax":
+        return poll_minimax(task_id)
     return poll_seedance(task_id)
 
 # ======================
@@ -287,7 +353,7 @@ def parse_args():
                         help="Pipeline run timestamp under <results-root>/<target>/ to take the storyboard "
                              "from (default: the latest run)")
     parser.add_argument("-m", "--model",  required=False, default=_detect_model_type(VIDEO_GEN_MODEL),
-                        choices=["wan", "seedance"], help="Video model to use")
+                        choices=["wan", "seedance", "minimax"], help="Video model to use")
     parser.add_argument("--auto-resume",  action="store_true",
                         help="Resume the latest run_* folder; skips generation if candidates exist")
     return parser.parse_args()
