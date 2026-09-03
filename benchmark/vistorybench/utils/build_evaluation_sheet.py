@@ -131,19 +131,27 @@ def is_usable(run_dir: Path) -> bool:
       check the newest (running) directory wins and the table silently mixes stories
       that have been scored with stories that have not, showing dashes for the rest.
     - **Stale.** Pre-SigLIP / pre-manga-panel-OCCM / pre-repeated-PA runs sort alongside
-      the new ones but their numbers mean something different. Current CIDS results
-      carry a `scoring` block; older ones do not.
+      the new ones but their numbers mean something different. Current results carry a
+      `scoring` block; older ones do not.
+
+    The `scoring` block is looked for in any metric the run computed, not in CIDS
+    specifically: a PA-only backfill pass writes no CIDS at all, and demanding CIDS here
+    would drop it from `resolve_runs` and leave the PA column empty even though the run
+    finished cleanly.
     """
     if not (run_dir / "summary.json").exists():
         return False
-    path = run_dir / "metrics" / "cids" / "story_results.json"
-    if not path.exists():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    return any(isinstance(o, dict) and isinstance(o.get("scoring"), dict) for o in data.values())
+    for metric in ("cids", "prompt_align"):
+        path = run_dir / "metrics" / metric / "story_results.json"
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if any(isinstance(o, dict) and isinstance(o.get("scoring"), dict) for o in data.values()):
+            return True
+    return False
 
 
 def outputs_timestamp(run_dir: Path) -> str | None:
@@ -492,27 +500,32 @@ def main() -> int:
     parser.add_argument("--results-root", type=Path, default=BENCH_DIR / "data" / "bench_results")
     parser.add_argument("--dataset-root", type=Path, default=BENCH_DIR / "data" / "dataset")
     parser.add_argument("--markdown", action="store_true", help="also print the tables as markdown")
+    parser.add_argument("--no-workbook", action="store_true",
+                        help="write only the --tsv files, skipping the .xlsx/.csv workbook")
     args = parser.parse_args()
+    if args.no_workbook and not args.tsv:
+        parser.error("--no-workbook needs --tsv, otherwise nothing would be written")
 
     index_path = args.dataset_root / "ViStory" / "story_index.json"
     story_index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {}
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    if args.output.suffix.lower() == ".xlsx":
-        write_xlsx(args.output, args.results_root, story_index)
-    else:
-        with args.output.open("w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            for block_name, methods in BLOCKS:
-                fixed = ["Method", "Model"] if BLOCK_HAS_MODEL.get(block_name) else ["Method"]
-                group_header = fixed + [c[0] for c in COLUMNS]
-                sub_header = [""] * len(fixed) + [c[1] for c in COLUMNS]
-                rows, _values, _notes = build_block(args.results_root, story_index, methods, block_name)
-                w.writerow([block_name])
-                w.writerow(group_header)
-                w.writerow(sub_header)
-                w.writerows(rows)
-                w.writerow([])
+    if not args.no_workbook:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        if args.output.suffix.lower() == ".xlsx":
+            write_xlsx(args.output, args.results_root, story_index)
+        else:
+            with args.output.open("w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                for block_name, methods in BLOCKS:
+                    fixed = ["Method", "Model"] if BLOCK_HAS_MODEL.get(block_name) else ["Method"]
+                    group_header = fixed + [c[0] for c in COLUMNS]
+                    sub_header = [""] * len(fixed) + [c[1] for c in COLUMNS]
+                    rows, _values, _notes = build_block(args.results_root, story_index, methods, block_name)
+                    w.writerow([block_name])
+                    w.writerow(group_header)
+                    w.writerow(sub_header)
+                    w.writerows(rows)
+                    w.writerow([])
 
     if args.tsv:
         args.tsv.mkdir(parents=True, exist_ok=True)
@@ -554,7 +567,8 @@ def main() -> int:
             for r in rows:
                 print(line(r))
 
-    print(f"\n{args.output}", file=sys.stderr)
+    if not args.no_workbook:
+        print(f"\n{args.output}", file=sys.stderr)
     return 0
 
 

@@ -91,3 +91,6 @@ benchmark/vistorybench/note
 
 # NFS silly-rename leftovers, from deleting a file another process still has open
 .nfs*
+
+# scratch scripts for the PA/IA backfill (not part of the pipeline)
+benchmark/vistorybench/tmp/

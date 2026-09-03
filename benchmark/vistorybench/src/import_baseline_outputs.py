@@ -66,6 +66,11 @@ ALIASES = {
     "lovehina": "LoveHina",
     "dualjustice1": "DualJustice1",
     "dualjustice2": "DualJustice2",
+    # Still never guessed. AniMaker's video track shipped a bare `dualjustice/`; it was
+    # identified as DualJustice1 on 2026-09-01 (the storyboard track spells the same story
+    # `dualjustice1`, and the clips show story 05's robot1 -- white/black mecha with gold
+    # trim -- while story 08 pairs girl1 with monster1 and has no robot) and the source
+    # folder was renamed to `dualjustice1`, so the entry above resolves it.
     "dualjustice": None,   # ambiguous: could be either DualJustice story, so never guess
 }
 
