@@ -41,7 +41,6 @@ GEMINI_API_KEY=<your-gemini-api-key>
 TEXT_MODEL=gemini-3.1-pro-preview
 IMAGE_MODEL=gemini-3-pro-image-preview
 VIDEO_REVIEW_MODEL=gemini-3.1-pro-preview
-VIDEO_GENERATION_MODEL=dreamina-seedance-2-0-260128  # or wan2.7-i2v
 
 # Pipeline defaults
 NUM_SCRIPTS=3
@@ -51,10 +50,21 @@ NUM_ITERATIONS=2
 EXP1=0
 EXP2=3
 
-# Video generation API keys
-ARK_API_KEY=<your-ark-key>       # required for Seedance; Volcengine/ByteDance Ark console: https://console.volcengine.com/ark
-IMGBB_API_KEY=<your-imgbb-key>   # required for both models (first-frame hosting); https://api.imgbb.com/
-# DASHSCOPE_API_KEY=              # required only if using WAN (wan2.7-i2v); Alibaba Cloud DashScope console: https://dashscope.console.aliyun.com/
+# Video generation — only the models you actually run need their key.
+# -m minimax-local and -m anisora are self-hosted and need none.
+ARK_API_KEY=<your-ark-key>          # -m seedance    https://console.volcengine.com/ark
+DASHSCOPE_API_KEY=<your-key>        # -m wan         https://dashscope.console.aliyun.com/
+MINIMAX_API_KEY=<your-key>          # -m minimax-api https://platform.minimax.io/
+IMGBB_API_KEY=<your-imgbb-key>      # image hosting for the three above; https://api.imgbb.com/
+
+# The exact version each -m submits
+SEEDANCE_MODEL=dreamina-seedance-2-0-260128
+WAN_MODEL=wan2.7-i2v
+MINIMAX_MODEL=MiniMax-H3
+MINIMAX_LOCAL_MODEL=MiniMaxAI/MiniMax-H3
+
+# Model used when -m is omitted
+VIDEO_GENERATION_MODEL=dreamina-seedance-2-0-260128
 
 # Storyboard backend (default: gemini; see "FLUX.2 storyboard backend" below)
 STORYBOARD_BACKEND=gemini
@@ -201,8 +211,9 @@ python src/run_all.py -t <target> --storyboard-backend flux2
 # write into / resume a specific run folder (default: newest when resuming, new one otherwise):
 python src/run_all.py -t <target> --auto-resume --time 20260821_143000
 
-# 3. Generate a 15-second video from the best storyboard of the latest run
-python src/create_video_fullstoryboard.py -t <target>
+# 3. Generate video from the best storyboard of the latest run
+#    (the model decides the route — see "Video generation" below)
+python src/create_video.py -t <target> -m seedance
 ```
 
 When `--auto-resume` is enabled, `run_all.py` checks the existing output files in the run folder and skips completed stages automatically. For example, if `iter0` and `iter1` are complete but `iter2` is incomplete, the pipeline resumes from the missing part of `iter2` instead of starting over.
@@ -224,11 +235,10 @@ The tools that consume a finished run take the same `--time` flag and default to
 
 ```bash
 python src/crop_storyboard_panels.py -t <target> --time 20260821_143000
-python src/create_video_fullstoryboard.py -t <target> --time 20260821_143000
-python src/create_video.py -t <target> --time 20260821_143000
+python src/create_video.py -t <target> -m seedance --time 20260821_143000
 ```
 
-Video output is **not** per-run — it stays at `results/<target>/video_fullstoryboard/<model>/run_<timestamp>/` (and `results/<target>/video/<model>/run_<timestamp>/` for the per-panel pipeline), where `--auto-resume` resumes the newest `run_*` folder as before.
+Video output is **not** per-run — it goes to `results/<target>/video/<model>/run_<timestamp>/`, where `--auto-resume` resumes the newest `run_*` folder.
 
 Results produced before this layout sit directly under `results/<target>/` (`character/`, `iter*/`). They are not resumed in place; move them into a run folder first:
 
@@ -254,11 +264,148 @@ Panels from all pages are numbered sequentially (`panel1.png`, `panel2.png`, …
 
 Same MAGI detection applied to a generated `bestStoryboard.*`, with left-to-right / top-to-bottom ordering and border trimming. Output goes next to the storyboard it cropped, i.e. `results/<target>/<timestamp>/iter<N>/storyboard_panels/`. `--iter` picks the iteration (default: the latest one that has a storyboard), `--time` picks the run.
 
-`create_video.py` (per-panel video pipeline) reads those panels; if the run has no `storyboard_panels/` it falls back to `target/<target>/storyboard_panels/`.
+`create_video.py` cuts them itself when the i2v route needs them and the run has none, by calling this script as a subprocess.
 
 ### Video frame extraction (`crop_video_frames.py`)
 
-Extracts one frame per shot from `results/<target>/video_fullstoryboard/seedance/<latest run>/best_video*.mp4` into `results/<target>/video_fullstoryboard/video_frames/`, and copies the shots into the ViStoryBench outputs tree. It reads only video paths, so it is unaffected by the run timestamp.
+Extracts one frame per shot from the finished video and copies the shots into the ViStoryBench outputs tree. It still reads the legacy `results/<target>/video_fullstoryboard/seedance/<latest run>/` path, so point it at a `results/<target>/video/<model>/` run explicitly when scoring output from `create_video.py`.
+
+---
+
+## Video generation (`create_video.py`)
+
+```bash
+python src/create_video.py -t <target> -m seedance
+```
+
+One entry point for every model. The route is a property of the model, not a flag.
+
+| `-m` | route | hosting | needs |
+|---|---|---|---|
+| `seedance` | ref | BytePlus Ark | `ARK_API_KEY`, `IMGBB_API_KEY` |
+| `minimax-api` | ref | api.minimax.io | `MINIMAX_API_KEY`, `IMGBB_API_KEY` |
+| `minimax-local` | ref | MiniMax-H3 under sglang | a running `serve.sh` |
+| `wan` | i2v | DashScope | `DASHSCOPE_API_KEY`, `IMGBB_API_KEY` |
+| `anisora` | i2v | Index-anisora V3.2 | conda env `anisora3.2` + a GPU |
+
+**ref route** — the model takes a reference image, so the whole
+`bestStoryboard.png` goes in with the entire script
+(`video_generation_storyboard.txt`) and comes back as one 15s video. Two
+candidates, one `video_eval_first.txt` review → `best_video.mp4`.
+
+Every video is always generated as two candidates and reviewed. That is the
+method, not a setting: the reviewer is a pairwise A/B comparison, so a single
+candidate would mean no review, and a model run that way could not be compared
+against one that was reviewed. For the self-hosted models this doubles the GPU
+time, which is the real cost of the comparison.
+
+**i2v route** — the model only takes a conditioning frame, so the storyboard is
+cut into panels (`crop_storyboard_panels.py`, run automatically when the panels
+are missing) and each panel drives its own clip from its own clip of the script
+(`video_generation.txt`). Clip length comes from the panel's share of the page
+area plus its dialogue word count. Panel 1 is reviewed with
+`video_eval_first.txt`, panels 2..N with `video_eval_sequential.txt`, which also
+sees the previous panel's winner and weights coherency at 0.4. Winners are
+concatenated into `final_story.mp4`.
+
+Both routes read from `results/<target>/[<run>/]iter1/` and write to
+`results/<target>/video/<model>/run_<timestamp>/`.
+
+| flag | |
+|---|---|
+| `-m` | which model. Omit it and one is detected from `VIDEO_GENERATION_MODEL` |
+| `--iter` | iteration to read from (default 1, `-1` = newest with a storyboard) |
+| `--time` | which pipeline run |
+| `--panel-count` | i2v route, default 6 |
+| `--auto-resume` | continue the newest `run_*` instead of starting one |
+| `--dry-run` | build every prompt and print what would be submitted, calling no model |
+
+### `.env`
+
+`-m` picks **which model**; these pick **which version of it**, and are what
+actually gets submitted — so moving to a newer release is a one-line change and
+`-m` stays the same:
+
+```env
+SEEDANCE_MODEL=dreamina-seedance-2-0-260128     # -m seedance
+WAN_MODEL=wan2.7-i2v                            # -m wan
+MINIMAX_MODEL=MiniMax-H3                        # -m minimax-api
+MINIMAX_LOCAL_MODEL=MiniMaxAI/MiniMax-H3        # -m minimax-local
+```
+
+anisora has no id to set — `-m anisora` runs whichever checkout is under
+`opensource_video_generator/models/Index-anisora/anisoraV3.2/`.
+
+`VIDEO_GENERATION_MODEL` is only the fallback for when `-m` is omitted: the model
+is detected from it (`dreamina-…` → `seedance`, `wan2.7-i2v` → `wan`,
+`MiniMax-H3` → `minimax-api`, `MiniMaxAI/MiniMax-H3` → `minimax-local` — the "/"
+of a HuggingFace repo id is what separates self-hosted from hosted). The version
+still comes from the ids above, so `-m seedance` and an omitted `-m` always
+submit the same thing.
+
+Optional, all with working defaults: `OSVG_MODELS_DIR` (weights root),
+`MINIMAX_LOCAL_PORT`/`MINIMAX_LOCAL_STEPS`, and
+`ANISORA_GPU`/`ANISORA_FRAME_NUM`/`ANISORA_SIZE`/`ANISORA_STEPS`/`ANISORA_ENV`.
+
+### Self-hosted models
+
+Weights live in `opensource_video_generator/models/`: `Index-anisora/` for
+`-m anisora` (conda env `anisora3.2`), `MiniMax-H3/` for `-m minimax-local`
+(env `minimax_h3`).
+
+anisora is a synchronous CLI, not a server — it runs through `conda run` and
+holds the GPU. All panels go in one invocation as a `prompt_list`, so the weights
+load once per candidate. `ANISORA_GPU` (default `0,4`) picks devices; two or more
+switch to torchrun + FSDP + ulysses, which 1280×720 × 81f needs. `--frame_num` is
+per invocation, so every panel comes out the same length: `ANISORA_FRAME_NUM`
+defaults to `81` (5s @ 16fps) and takes `auto` to use the duration heuristic.
+
+`-m minimax-local` needs its sglang server already running:
+
+```bash
+GPUS=0,2 bash opensource_video_generator/tests/minimax_test/serve.sh
+```
+
+`minimax-api` is the same model hosted. It is the only backend with a prompt
+limit (7000 chars — the API's limit, not the model's; the self-hosted path has
+none), and `--dry-run` catches it. H3 is billed pay-as-you-go only: Credits and
+Token Plans do not cover it.
+
+### Prompts
+
+Each route reuses the prompt its earlier script used, unchanged.
+
+| what | prompt | from |
+|---|---|---|
+| ref generation | `video_generation_storyboard.txt` + whole script | `create_video_fullstoryboard.py` |
+| i2v generation | `video_generation.txt` + that clip | `create_video_single.py` |
+| first review | `video_eval_first.txt` | both |
+| sequential review | `video_eval_sequential.txt` | `create_video_single.py` |
+| anisora generation | condensed rules + clip text + aesthetic/motion suffix | `tests/anisora_test/make_prompt_list.py` |
+
+anisora is the exception: its T5 encoder tops out at 512 tokens, so the full
+prompt does not fit. It gets the condensed form the 720-round comparison used,
+word for word. The two hosted candidates are submitted as identical requests with
+no seed, as before; only anisora takes one (`--base_seed 4096`).
+
+### Output layout
+
+```
+results/<target>/video/<model>/run_<YYYYMMDD_HHMMSS>/
+    prompt.txt  tasks_info.json                       # ref route
+    candidate_<c>.mp4  gemini_eval_response.txt  best_video.mp4
+
+    panel_<i>/candidate_<c>.mp4  best_panel_<i>.mp4   # i2v route
+    candidate_<c>/prompt_list.txt  panel<i>_*.mp4     #   anisora batches
+    concat_list.txt  final_story.mp4
+```
+
+A policy violation marks `tasks_info.json` `"status": "failed"` and exits cleanly
+so a batch run continues.
+
+`create_video_single.py` (per-panel) and `create_video_fullstoryboard.py`
+(full storyboard) are the original single-route scripts, kept unchanged as
+backups. They write to `results/<target>/video_fullstoryboard/<model>/run_*/`.
 
 ---
 
@@ -292,14 +439,12 @@ results/<target>/
             panel{1..6}.png
             overview.png
 
-  video_fullstoryboard/                 # shared across runs, not per-timestamp
-    <model>/                            # "seedance" or "wan"
-        run_<YYYYMMDD_HHMMSS>/
-            tasks_info.json
-            candidate_1.mp4
-            candidate_2.mp4
-            gemini_eval_response.txt
-            best_video.mp4
+  video/                                # shared across runs, not per-timestamp
+    <model>/                            # seedance | minimax-api | minimax-local | wan | anisora
+        run_<YYYYMMDD_HHMMSS>/          # see "Video generation" for the contents
+
+  video_fullstoryboard/                 # the legacy scripts still write here
+    <model>/run_<YYYYMMDD_HHMMSS>/
     video_frames/                       # crop_video_frames.py
         shot_{1..6}.png
         overview.png
@@ -328,8 +473,10 @@ prompt for the next `create_script.py` invocation.
 | Storyboard compare (same script) | `prompts/storyboard_reviewer_same_script.txt` |
 | Storyboard compare (different script) | `prompts/storyboard_reviewer_different_script.txt` |
 | Cyclic-tie priority order | `prompts/storyboard_tie_order.txt` |
-| Video generation (full storyboard) | `prompts/video_generation_storyboard.txt` |
-| Video eval | `prompts/video_eval_first.txt` |
+| Video generation — ref route (full storyboard) | `prompts/video_generation_storyboard.txt` |
+| Video generation — i2v route (one panel) | `prompts/video_generation.txt` |
+| Video eval — first clip | `prompts/video_eval_first.txt` |
+| Video eval — later clips (i2v route) | `prompts/video_eval_sequential.txt` |
 
 ---
 
@@ -339,7 +486,8 @@ prompt for the next `create_script.py` invocation.
 |----------|-------------|
 | `TEXT_MODEL` | Gemini model for text generation/evaluation |
 | `IMAGE_MODEL` | Gemini model for storyboard image generation |
-| `VIDEO_GENERATION_MODEL` | Video generation model (`dreamina-seedance-2-0-260128` or `wan2.7-i2v`) |
+| `SEEDANCE_MODEL`, `WAN_MODEL`, `MINIMAX_MODEL`, `MINIMAX_LOCAL_MODEL` | The exact model id submitted for each `-m` |
+| `VIDEO_GENERATION_MODEL` | Which model `create_video.py` falls back to when `-m` is omitted (the version comes from the ids above); also what the legacy scripts read |
 | `VIDEO_REVIEW_MODEL` | Gemini model used for video candidate evaluation |
 | `NUM_SCRIPTS` | Number of scripts generated per iteration |
 | `NUM_CLIPS` | Number of manga panels per page |
@@ -348,55 +496,13 @@ prompt for the next `create_script.py` invocation.
 | `EXP1`, `EXP2` | Few-shot example indices |
 | `GOOGLE_CLOUD_PROJECT` | Vertex AI project ID |
 | `GOOGLE_CLOUD_LOCATION` | Vertex AI region |
-| `ARK_API_KEY` | Ark API key for Seedance video generation |
-| `IMGBB_API_KEY` | ImgBB API key for hosting first-frame images (both models) |
-| `DASHSCOPE_API_KEY` | DashScope API key — only needed when using `wan2.7-i2v` |
-
----
-
-## Video Generation
-
-After `run_all.py` completes, generate a single 15-second video from the best storyboard:
-
-> The top-level `video/` and `video-seedance/` directories are earlier, separate
-> experiments — the currently-documented pipeline below (`create_video_fullstoryboard.py`
-> / `create_video.py`) does not depend on them.
-
-```bash
-python src/create_video_fullstoryboard.py -t <target>
-# override model (default: auto-detected from VIDEO_GENERATION_MODEL in .env):
-python src/create_video_fullstoryboard.py -t <target> -m seedance
-python src/create_video_fullstoryboard.py -t <target> -m wan
-# resume from an existing run (re-polls tasks or skips straight to evaluation):
-python src/create_video_fullstoryboard.py -t <target> --auto-resume
-# take the storyboard from one specific pipeline run (default: the latest one):
-python src/create_video_fullstoryboard.py -t <target> --time 20260821_143000
-```
-
-### How it works
-
-1. Finds `bestStoryboard.*` and `bestScript.json` in the latest `iter<N>` of the pipeline run selected by `--time` (default: the newest `results/<target>/<timestamp>/`)
-2. Builds a video prompt from the full script JSON
-3. Uploads the storyboard image to ImgBB as first-frame reference
-4. Submits **two** 15s generation tasks (A & B) to the chosen API
-5. Downloads both candidates and evaluates with Gemini (Visual Realism, Physical Commonsense, Prompt Alignment)
-6. Saves the winner as `best_video.mp4`
-
-If a task fails with a policy/copyright violation the run is marked `"status": "failed"` in `tasks_info.json` and the pipeline exits cleanly (so a batch run continues to the next target).
-
-### Video output layout
-
-```
-results/<target>/                         # note: outside the per-run <timestamp>/ folder
-    video_fullstoryboard/
-        <model>/                          # "wan" or "seedance"
-            run_<YYYYMMDD_HHMMSS>/
-                tasks_info.json           # submitted task IDs + optional failure status
-                candidate_1.mp4
-                candidate_2.mp4
-                gemini_eval_response.txt
-                best_video.mp4            # winning candidate
-```
+| `ARK_API_KEY` | Ark API key — `-m seedance` |
+| `DASHSCOPE_API_KEY` | DashScope API key — `-m wan` |
+| `MINIMAX_API_KEY` | MiniMax API key — `-m minimax-api` |
+| `IMGBB_API_KEY` | ImgBB API key for hosting the reference/first-frame image — every hosted model that takes an image URL |
+| `OSVG_MODELS_DIR` | Weights root for locally-hosted models (default `opensource_video_generator/models/`) |
+| `MINIMAX_LOCAL_PORT` | Port the MiniMax-H3 sglang server listens on (default 30011) |
+| `ANISORA_GPU`, `ANISORA_FRAME_NUM`, `ANISORA_SIZE`, `ANISORA_STEPS`, `ANISORA_ENV` | anisora run settings — see [Video generation](#video-generation-create_videopy) |
 
 ---
 

@@ -64,8 +64,8 @@ __pycache__/
 benchmark/vistorybench/data/outputs/ours/
 benchmark/vistorybench/note
 # build_evaluation_sheet.py's output; regenerate with utils/build_evaluation_sheet.py
-/benchmark/vistorybench/evaluation_table.xlsx
 /benchmark/vistorybench/evaluation_tsv/
+/benchmark/vistorybench/utils/build_evaluation_sheet.py
 # upstream demo media (30M: 20M mp4 + 5M teasers), not needed to run the bench
 /benchmark/vistorybench/assets/
 
