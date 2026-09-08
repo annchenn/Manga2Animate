@@ -95,10 +95,55 @@ def upload_image_to_imgbb(image_path):
     res.raise_for_status()
     data = res.json()
     if not data.get("success"):
-        raise RuntimeError(f"ImgBB upload failed: {data}")
+        raise RuntimeError(_imgbb_error(data))
     url = data["data"]["url"]
     log.info(f"ImgBB → {url}")
     return url
+
+
+# A full account is the failure this hits in practice, and ImgBB reports it as a generic
+# rejection — so say so plainly instead of leaving a raw payload to decode. The symptom
+# downstream is worse than the upload error itself: the video provider is handed a URL it
+# cannot fetch and fails with "media url unreachable", which reads like a network problem.
+_IMGBB_FULL_HINTS = ("storage", "full", "limit", "quota", "exceed", "space")
+
+
+def _imgbb_error(data):
+    message = str(((data or {}).get("error") or {}).get("message", "")) or str(data)
+    if any(hint in message.lower() for hint in _IMGBB_FULL_HINTS):
+        log.warn("ImgBB looks FULL — delete some images at https://imgbb.com/ and retry.")
+        return (
+            f"ImgBB upload rejected, and the message looks like a storage limit: {message}\n"
+            f"The account is probably full — delete some images at https://imgbb.com/ "
+            f"and run the same command again."
+        )
+    return f"ImgBB upload failed: {data}"
+
+
+def _unreachable_image_hint(payload):
+    """Point at ImgBB when a provider says it could not fetch the reference image.
+
+    The reference image is handed over as an ImgBB URL, so "media url unreachable" is
+    almost never the video provider's fault -- it is the image not being served. A full
+    ImgBB account is the usual cause, and nothing in the provider's message says so.
+    """
+    if "unreachable" in str(payload).lower():
+        log.warn("The video provider could not fetch the reference image from ImgBB. "
+                 "If ImgBB is FULL, delete some images at https://imgbb.com/ and retry.")
+
+
+def _as_data_uri(image):
+    """Inline a local image as a base64 data URI; pass an http(s) URL through unchanged."""
+    text = str(image)
+    if text.startswith("http://") or text.startswith("https://") or text.startswith("data:"):
+        return text
+    import base64
+    import mimetypes
+    path = Path(text[len("file://"):] if text.startswith("file://") else text)
+    mime = mimetypes.guess_type(path.name)[0] or "image/png"
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    log.info(f"Inlining {path.name} for MiniMax ({len(encoded) // 1024} KB base64)")
+    return f"data:{mime};base64,{encoded}"
 
 
 def fetch_result(result, out_path):
@@ -204,6 +249,7 @@ class WanBackend(Backend):
             if status == "SUCCEEDED":
                 return res["output"]["video_url"]
             if status in ("FAILED", "CANCELED"):
+                _unreachable_image_hint(res)
                 raise RuntimeError(f"Task {task_id} failed: {res}")
             time.sleep(interval)
         raise TimeoutError(f"Polling timed out after {timeout}s")
@@ -248,6 +294,7 @@ class SeedanceBackend(Backend):
                 error = data.get("error", {}) or {}
                 if "SensitiveContent" in error.get("code", "") or "PolicyViolation" in error.get("code", ""):
                     raise PolicyViolationError(task_id, error.get("message", "Policy violation"))
+                _unreachable_image_hint(data)
                 raise RuntimeError(f"Task {task_id} failed: {data}")
             if status == "expired":
                 raise RuntimeError(f"Task {task_id} expired.")
@@ -259,6 +306,14 @@ class SeedanceBackend(Backend):
 # MINIMAX — hosted api.minimax.io
 # ======================
 class MiniMaxApiBackend(Backend):
+    """Hosted MiniMax. The reference image travels inline, not as a URL.
+
+    MiniMax's fetcher could not reach our ImgBB links -- every task failed with
+    `content[1].image_url: media url unreachable` while the same URL returned HTTP 200
+    from this machine and Seedance consumed it without trouble. A base64 data URI takes
+    the fetch out of the loop entirely, which is what the API accepts here.
+    """
+
     def submit(self, prompt, image, duration, seed=None):
         headers = {
             "Authorization": f"Bearer {MINIMAX_API_KEY}",
@@ -268,7 +323,8 @@ class MiniMaxApiBackend(Backend):
             "model": self.model_id,
             "content": [
                 {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": image}, "role": "reference_image"},
+                {"type": "image_url", "image_url": {"url": _as_data_uri(image)},
+                 "role": "reference_image"},
             ],
             "duration": duration,
             "resolution": "768P",
@@ -307,6 +363,7 @@ class MiniMaxApiBackend(Backend):
                 blob = f"{error.get('code', '')} {error.get('message', '')}".lower()
                 if "sensitive" in blob or "policy" in blob or "violat" in blob:
                     raise PolicyViolationError(task_id, error.get("message", "Policy violation"))
+                _unreachable_image_hint(task)
                 raise RuntimeError(f"Task {task_id} failed: {task}")
             time.sleep(interval)
         raise TimeoutError(f"Polling timed out after {timeout}s")
@@ -359,6 +416,13 @@ class MiniMaxLocalBackend(Backend):
             "num_outputs_per_prompt": 1,
             "num_inference_steps": self.steps,
         }
+        # Unlike the hosted providers, this one does take a seed: sglang declares
+        # `seed` on VideoGenerationsRequest and threads it into minimax_h3's
+        # canonical request. Leaving it out makes every candidate identical --
+        # goblin's run_20260907_175744 returned two byte-identical candidates
+        # (same md5) and the A/B judge was comparing a file with itself.
+        if seed is not None:
+            payload["seed"] = int(seed)
         res = requests.post(self.base_url, json=payload, timeout=600)
         res.raise_for_status()
         return res.json()["id"]
@@ -563,7 +627,10 @@ def build_registry():
             name="minimax-api", mode="ref",
             model_id=_env("MINIMAX_MODEL", MINIMAX_DEFAULT_MODEL),
             ref_duration=15, panel_clamp=(4, 6),
-            needs_public_url=True, env_keys=("MINIMAX_API_KEY",),
+            # Not needs_public_url: MiniMax cannot reliably fetch our ImgBB links
+            # (it fails the task with "media url unreachable" while the same URL serves
+            # fine from here and to Seedance), so the image is inlined instead.
+            needs_public_url=False, env_keys=("MINIMAX_API_KEY",),
             prompt_limit=MINIMAX_PROMPT_LIMIT,
         ),
         "minimax-local": MiniMaxLocalBackend(
