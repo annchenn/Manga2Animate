@@ -89,6 +89,88 @@ def sort_top_left_to_bottom_right(boxes, img_h: int):
     return ordered
 
 
+def group_into_rows(boxes, img_h: int):
+    """Boxes grouped by y-proximity, each row sorted left -> right."""
+    rows = []
+    for box in sorted(boxes, key=lambda b: b[1]):
+        for row in rows:
+            if abs(box[1] - row[0][1]) < ROW_GAP_FRAC * img_h:
+                row.append(box)
+                break
+        else:
+            rows.append([box])
+    for row in rows:
+        row.sort(key=lambda b: b[0])
+    return rows
+
+
+def reconcile_to_grid(boxes, img_w: int, img_h: int, expected: int):
+    """Force MAGI's boxes onto the storyboard's regular grid.
+
+    Detection is not reliable enough to trust the count: on a 56-sheet batch it returned
+    something other than six panels on 16 of them, in two ways. A panel whose content is
+    mostly blank is missed entirely, and a panel with a strong internal edge is returned
+    as two boxes. Either way the writer numbers whatever it got as panel1..panelN, so one
+    missing panel silently shifts every later shot onto the wrong image -- the failure is
+    invisible until the benchmark scores shot 4 against shot 5's prompt.
+
+    Where the storyboard is a regular grid the geometry is the ground truth: boxes are
+    grouped into rows and columns, several boxes landing in one cell are merged, and a
+    cell with no box at all is synthesised from its row's and column's extent.
+
+    Not every storyboard is a grid, though -- some put three panels in one column beside
+    a single wide one -- so this returns (None, reason) when the boxes cannot be fitted,
+    and the caller keeps the raw detections rather than inventing a layout. It is only
+    ever consulted when the count is already wrong, so a correct irregular layout is
+    never touched.
+
+    Returns the grid in reading order plus human-readable repairs, empty when nothing
+    needed fixing.
+    """
+    rows = group_into_rows(boxes, img_h)
+    if not rows:
+        return [], []
+    n_rows = len(rows)
+    if n_rows == 0 or expected % n_rows:
+        return None, [f"cannot fit {len(boxes)} box(es) into {n_rows} row(s) for {expected} panels"]
+    n_cols = expected // n_rows
+
+    # Column edges come from the row that MAGI split most finely, falling back to an even
+    # division when no row shows all of them.
+    widest = max(rows, key=len)
+    if len(widest) >= n_cols:
+        centres = sorted((b[0] + b[2]) / 2 for b in widest)
+        # Collapse to n_cols centres by taking the largest gaps as the column separators.
+        while len(centres) > n_cols:
+            gaps = [(centres[i + 1] - centres[i], i) for i in range(len(centres) - 1)]
+            _g, i = min(gaps)
+            centres[i:i + 2] = [(centres[i] + centres[i + 1]) / 2]
+        edges = [0] + [(centres[i] + centres[i + 1]) / 2 for i in range(n_cols - 1)] + [img_w]
+    else:
+        edges = [img_w * i / n_cols for i in range(n_cols + 1)]
+
+    repairs, grid = [], []
+    for r, row in enumerate(rows):
+        y1 = min(b[1] for b in row)
+        y2 = max(b[3] for b in row)
+        cells = [[] for _ in range(n_cols)]
+        for b in row:
+            centre = (b[0] + b[2]) / 2
+            c = min(range(n_cols), key=lambda i: abs(centre - (edges[i] + edges[i + 1]) / 2))
+            cells[c].append(b)
+        for c, found in enumerate(cells):
+            if len(found) == 1:
+                grid.append(found[0])
+            elif len(found) > 1:
+                grid.append((min(b[0] for b in found), min(b[1] for b in found),
+                             max(b[2] for b in found), max(b[3] for b in found)))
+                repairs.append(f"row {r + 1} col {c + 1}: merged {len(found)} boxes into one panel")
+            else:
+                grid.append((int(edges[c]), y1, int(edges[c + 1]), y2))
+                repairs.append(f"row {r + 1} col {c + 1}: no box detected, filled from the grid")
+    return grid, repairs
+
+
 def is_border_line(line: np.ndarray) -> bool:
     """True if this row/col is either near-pure-black (gutter) or flat/uniform (any-color bleed,
     e.g. page background or an adjacent panel's edge color showing through anti-aliasing)."""
@@ -146,6 +228,13 @@ def main():
         default=None,
         help="Iteration to use (default: latest iter that has a bestStoryboard)",
     )
+    parser.add_argument(
+        "--expect",
+        type=int,
+        default=6,
+        help="Panels the storyboard should have (default: 6). A detection that misses or "
+             "splits one is reconciled against the grid; 0 disables the check.",
+    )
     args = parser.parse_args()
 
     target_dir = args.results_root / args.target
@@ -177,7 +266,26 @@ def main():
         return
 
     boxes = [tuple(int(v) for v in bbox) for bbox in raw_panels]
-    ordered = sort_top_left_to_bottom_right(boxes, img_array.shape[0])
+    h, w = img_array.shape[0], img_array.shape[1]
+    ordered = sort_top_left_to_bottom_right(boxes, h)
+
+    # Detection alone is not trustworthy enough to number the output by: a blank-ish panel
+    # is missed and a panel with a strong internal edge comes back as two, and either one
+    # shifts every later panel onto the wrong shot without any sign that it happened.
+    if args.expect and len(ordered) != args.expect:
+        warn(f"{len(ordered)} panel(s) detected but {args.expect} expected — "
+             f"reconciling against the storyboard grid")
+        repaired, repairs = reconcile_to_grid(ordered, w, h, args.expect)
+        if repaired is None or len(repaired) != args.expect:
+            for note in repairs:
+                warn(f"  {note}")
+            warn("Could not recover the grid; writing the raw detections instead. "
+                 "Check overview.png before trusting the panel numbering.")
+        else:
+            for note in repairs:
+                info(f"  {note}")
+            ordered = repaired
+            success(f"Recovered {args.expect} panels from the grid")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     src_image = Image.fromarray(img_array)
