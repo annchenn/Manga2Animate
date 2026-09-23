@@ -1,0 +1,9 @@
+torch
+torchvision
+transformers
+safetensors
+huggingface_hub
+git+https://github.com/openai/CLIP.git
+pillow
+opencv-python
+pandas

@@ -2,13 +2,7 @@ Create an animation storyboard: 3×2 grid, landscape A4 format
 
 Image Input Order:
 1–6. Target manga panels given by order in a manga page using different names (panel1.png…e.t.c.)
-7. Example 1 manga page
-8. Example 1 character reference
-9. Example 1 storyboard
-10. Example 2 manga page
-11. Example 2 character reference
-12. Example 2 storyboard
-13 onward. Target character reference image(s) — one image per character, in
+7 onward. Target character reference image(s) — one image per character, in
    Character[id] order (id 1 first, then id 2, ...). The exact count varies by
    target: it may be a single composite reference sheet (all characters in one
    image) or several separate clean per-character images.
@@ -23,23 +17,7 @@ One-to-One Correspondence Rule:
 
 ---
 
-Few-Shot References:
-
-Example 1 Animation Script:
-{Example 1 Animation Script}
-
-Example 1 Instruction:
-- Image 7 is the manga page, Image 8 is its character reference, Image 9 is its corresponding storyboard
-- Study how each manga panel is interpreted into a storyboard frame following the script clips above
-
-Example 2 Animation Script:
-{Example 2 Animation Script}
-
-Example 2 Instruction:
-- Image 10 is the manga page, Image 11 is its character reference, Image 12 is its corresponding storyboard
-- Study how each manga panel is interpreted into a storyboard frame following the script clips above
-
-Apply the same approach from both examples to convert Images 1–6 (target manga panels) and the target script below into your storyboard output, using the target character reference image(s) — the final group of images in the input, starting at Image 13 — as the character reference(s).
+Convert Images 1–6 (target manga panels) and the target script below into your storyboard output, using the target character reference image(s) — the final group of images in the input, starting at Image 7 — as the character reference(s).
 
 ---
 

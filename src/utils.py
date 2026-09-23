@@ -15,8 +15,7 @@ def make_genai_client() -> genai.Client:
     (character description, script, storyboard, and reviewer stages).
 
     Prefers Vertex AI (GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION) when a GCP
-    project is configured — this is the team default (most of the team runs
-    against Vertex, not a personal API key). Falls back to a plain API key
+    project is configured. Falls back to a plain API key
     (GEMINI_API_KEY) when GOOGLE_CLOUD_PROJECT is unset/empty — that path needs
     nothing more than a key from https://aistudio.google.com/apikey, no GCP IAM/
     service-account/billing setup, and stays available for anyone without GCP
@@ -44,7 +43,7 @@ def find_character_ref_images(directory: Path) -> list[tuple[int, Path]]:
     New convention: <directory>/characters/char{id}.{png,jpg,jpeg}, one image per
     character, returned sorted by id. Falls back to the legacy single
     <directory>/ref.* file (treated as id 1) when characters/ doesn't exist or is
-    empty, so existing targets (DualJustice1, DualJustice2, ToutaMairimasu) keep
+    empty, so targets that only have ref.* keep
     working unmodified. Raises FileNotFoundError if neither exists.
     """
     chars_dir = directory / "characters"

@@ -68,6 +68,13 @@ def gptv_query(transcript=None, top_p=0.2, temp=0., model_type="gpt-4.1", api_ke
             # generic path below does) would also quietly change what the repeated
             # scoring is sampling, which is the one thing that must stay fixed.
             if response.status_code == 429:
+                # Not every 429 is pacing: an exhausted balance or a spent quota comes
+                # back with the same status and will never succeed, so retrying it just
+                # burns hours the way the Gemini 403 block did on 2026-09-05. Fail the
+                # whole run immediately and let the caller surface the billing problem.
+                if any(marker in body for marker in
+                       ('insufficient_quota', 'credit_balance_exhausted', 'billing_hard_limit_reached')):
+                    raise RuntimeError(f"API quota/credit exhausted, not a rate limit: {body[:200]}")
                 delay = wait_time
                 for header in ('retry-after-ms', 'Retry-After'):
                     value = response.headers.get(header)
@@ -79,6 +86,9 @@ def gptv_query(transcript=None, top_p=0.2, temp=0., model_type="gpt-4.1", api_ke
                         break
                 delay = min(max(delay + random.uniform(0.2, 1.5), 1.0), 60.0)
                 print(f"Rate limited; retrying in {delay:.1f}s")
+                # Waiting out this one call is not enough: if the pacing were right the
+                # 429 would not have happened, so widen it for every worker as well.
+                _rate_limiter.penalize()
                 time.sleep(delay)
                 rate_limit_waits += 1
                 if rate_limit_waits <= 20:
@@ -94,6 +104,7 @@ def gptv_query(transcript=None, top_p=0.2, temp=0., model_type="gpt-4.1", api_ke
             time.sleep(wait_time)
             continue
         response_text = response_json["choices"][0]["message"]["content"]
+        _rate_limiter.reward()
 
     if len(response_text) < 2:
         raise RuntimeError(f"gptv_query failed after {max_retries} attempts. Last error: {last_error}")
@@ -135,7 +146,7 @@ SCORE_PATTERN = re.compile(r"(score|Score):\s*[a-zA-Z]*\s*(\d+)")
 
 class _RateLimiter:
     """
-    Global minimum spacing between VLM requests.
+    Global minimum spacing between VLM requests, widened automatically on 429.
 
     Endpoints with a tight tokens-per-minute budget (OpenAI's gpt-4.1 here is 30k TPM,
     about 20 of these image calls a minute) cannot be driven by worker count: 32 threads
@@ -143,26 +154,92 @@ class _RateLimiter:
     and make the run slower than pacing it would have been. Spacing every request by
     `60 / (tpm / tokens_per_call)` keeps the pool underneath the cap instead.
 
-    Set VLM_TOKENS_PER_MINUTE=0 to disable (endpoints like Gemini do not need it).
+    Configured by VLM_TOKENS_PER_MINUTE (0 disables it; Gemini does not need it) and
+    VLM_TOKENS_PER_CALL, which is only an estimate of a scoring call's token cost. When
+    the estimate is low the static pacing still draws 429s, so every 429 stretches the
+    interval by 50% and a run of clean responses relaxes it back toward the configured
+    value -- the pacing converges on whatever the endpoint actually allows.
+
+    The config is read on first use, not in __init__: `bench_run.py` imports the
+    evaluators (and therefore this module) before it calls `load_dotenv()`, so reading
+    the environment at import time saw none of the .env settings and left the limiter
+    silently disabled -- pacing only ever worked when the variables were exported by
+    hand in the shell.
     """
+
+    RETRY_BACKOFF = 1.5      # interval multiplier applied when 429s persist
+    PENALTY_DEBOUNCE = 1.0   # widen at most once per this many current intervals
+    RECOVER_AFTER = 8        # clean responses before easing the interval back down
+    RECOVER_FACTOR = 0.8     # how much of the penalty one recovery step gives back
+    MAX_INTERVAL = 30.0      # never space requests further apart than this
 
     def __init__(self):
         self._lock = threading.Lock()
         self._next_at = 0.0
+        self._configured = False
+        self._base_interval = 0.0
+        self._ok_streak = 0
+        self._penalized_until = 0.0
+        self.interval = 0.0
+
+    def _configure_locked(self):
         tpm = float(os.environ.get("VLM_TOKENS_PER_MINUTE", "0") or 0)
         per_call = float(os.environ.get("VLM_TOKENS_PER_CALL", "1500") or 1500)
-        self.interval = (60.0 * per_call / tpm) if tpm > 0 else 0.0
+        self._base_interval = (60.0 * per_call / tpm) if tpm > 0 else 0.0
+        self.interval = self._base_interval
+        self._configured = True
+        if self.interval > 0:
+            print(f"VLM rate limit: {tpm:.0f} TPM / {per_call:.0f} tokens per call "
+                  f"-> {60.0 / self.interval:.1f} calls/min ({self.interval:.2f}s apart)")
 
     def wait(self):
-        if self.interval <= 0:
-            return
         with self._lock:
+            if not self._configured:
+                self._configure_locked()
+            if self.interval <= 0:
+                return
             now = time.monotonic()
             start = max(now, self._next_at)
             self._next_at = start + self.interval
         delay = start - now
         if delay > 0:
             time.sleep(delay)
+
+    def penalize(self):
+        """
+        A 429 means the current spacing is still too tight; widen it.
+
+        Debounced, because the worker pool has 32 threads in flight: one moment of going
+        over the cap comes back as a burst of 429s, and widening once per response would
+        raise the interval by 1.5^32 and pin it at MAX_INTERVAL over a single incident.
+        Only the first 429 of each interval-long window counts, so the pacing tracks how
+        long the pressure lasts rather than how many threads happened to be in flight.
+        """
+        with self._lock:
+            if not self._configured:
+                self._configure_locked()
+            if self._base_interval <= 0:
+                return
+            self._ok_streak = 0
+            now = time.monotonic()
+            if now < self._penalized_until:
+                return
+            self._penalized_until = now + max(self.interval * self.PENALTY_DEBOUNCE, 1.0)
+            widened = min(self.interval * self.RETRY_BACKOFF, self.MAX_INTERVAL)
+            if widened > self.interval:
+                self.interval = widened
+                print(f"Rate limit hit; pacing widened to {60.0 / self.interval:.1f} calls/min")
+
+    def reward(self):
+        """Ease back toward the configured pace once the endpoint stops complaining."""
+        with self._lock:
+            if self._base_interval <= 0 or self.interval <= self._base_interval:
+                return
+            self._ok_streak += 1
+            if self._ok_streak < self.RECOVER_AFTER:
+                return
+            self._ok_streak = 0
+            self.interval = max(self._base_interval, self.interval * self.RECOVER_FACTOR)
 
 
 _rate_limiter = _RateLimiter()

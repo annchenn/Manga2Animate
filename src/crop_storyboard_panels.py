@@ -214,8 +214,8 @@ def main():
     parser.add_argument(
         "--results-root",
         type=Path,
-        default=BASE_DIR / "results_test",
-        help="Results root directory (default: results/; e.g. results_test/)",
+        default=BASE_DIR / "results",
+        help="Results root directory (default: results/)",
     )
     parser.add_argument(
         "--time",

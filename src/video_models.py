@@ -64,8 +64,9 @@ MINIMAX_QUERY_URL = "https://api.minimax.io/v2/query/video_generation"
 MINIMAX_PROMPT_LIMIT = 7000
 
 # H3 is the only MiniMax model this pipeline targets, hosted or self-hosted.
-# `MiniMax-H3-Max` exists too but explicitly does not accept reference input, so it
-# cannot drive the ref route at all.
+# `MiniMax-H3-Max` accepts reference input too, so it could drive the ref route —
+# it trades resolution and length for speed (480P/768P, no 2K, 5-15s against H3's
+# 768P/2K, 4-15s). Point MINIMAX_MODEL at it to try it.
 MINIMAX_DEFAULT_MODEL = "MiniMax-H3"
 
 
@@ -373,7 +374,7 @@ class MiniMaxApiBackend(Backend):
 # MINIMAX — self-hosted MiniMax-H3 behind sglang
 # ======================
 class MiniMaxLocalBackend(Backend):
-    """`opensource_video_generator/tests/minimax_test/serve.sh` must already be running.
+    """`opensource_backends/minimax_h3/serve.sh` must already be running.
 
     The request shape comes from sglang's own `minimax_h3/request_validation.py`,
     not the cookbook: the generic OpenAI `seconds`/`size` fields are ignored by
@@ -395,7 +396,7 @@ class MiniMaxLocalBackend(Backend):
             raise RuntimeError(
                 f"No MiniMax-H3 server on port {self.port} ({e}). The client talks to a "
                 f"running sglang server, it does not load the weights itself — start it with "
-                f"`GPUS=0,2 bash opensource_video_generator/tests/minimax_test/serve.sh` "
+                f"`bash opensource_backends/minimax_h3/serve.sh` "
                 f"(weights: {self.weights_dir}), or point MINIMAX_LOCAL_PORT at an existing one."
             ) from e
 
@@ -418,9 +419,8 @@ class MiniMaxLocalBackend(Backend):
         }
         # Unlike the hosted providers, this one does take a seed: sglang declares
         # `seed` on VideoGenerationsRequest and threads it into minimax_h3's
-        # canonical request. Leaving it out makes every candidate identical --
-        # goblin's run_20260907_175744 returned two byte-identical candidates
-        # (same md5) and the A/B judge was comparing a file with itself.
+        # canonical request. Leaving it out makes every candidate identical
+        # (byte-identical files), so the A/B judge would compare a file with itself.
         if seed is not None:
             payload["seed"] = int(seed)
         res = requests.post(self.base_url, json=payload, timeout=600)
@@ -455,8 +455,7 @@ class MiniMaxLocalBackend(Backend):
 #
 # Prompt format is not ours to choose here: anisora's T5 text encoder tops out at
 # 512 tokens, so the pipeline's `video_generation.txt` (7 rules + the whole
-# bestScript.json) does not fit. The 720-round comparison
-# (`opensource_video_generator/tests/anisora_test/make_prompt_list.py`) settled on
+# bestScript.json) does not fit. Our open-source model comparison settled on
 # a condensed per-panel form instead — condensed RULES, then that one clip's
 # `environment` + `description` verbatim with dialogue kept, then anisora's
 # recommended aesthetic/motion/no-text suffix — and that is what is reproduced
@@ -492,7 +491,7 @@ class AnisoraBackend(Backend):
         if not self.anisora_dir.is_dir():
             raise RuntimeError(
                 f"anisora checkout not found: {self.anisora_dir}. Clone Index-anisora into "
-                f"{self.weights_dir}, or point ANISORA_WEIGHTS at it."
+                f"{self.weights_dir}, or point ANISORA_WEIGHTS at it (see opensource_backends/README.md)."
             )
 
     def build_panel_prompt(self, clip, characters=None):
@@ -520,7 +519,7 @@ class AnisoraBackend(Backend):
         prompt_list.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         # --frame_num is per invocation, so one length covers the whole batch.
-        # The 720-round default was 81 (5s); ANISORA_FRAME_NUM=auto instead takes
+        # The default is 81 (5s); ANISORA_FRAME_NUM=auto instead takes
         # the longest clip the duration heuristic asked for.
         frame_env = os.getenv("ANISORA_FRAME_NUM", "81")
         if frame_env == "auto":
@@ -528,7 +527,7 @@ class AnisoraBackend(Backend):
         else:
             frames = int(frame_env)
 
-        gpus = os.getenv("ANISORA_GPU", "0,4")
+        gpus = os.getenv("ANISORA_GPU", "0,1")
         ngpu = len([g for g in gpus.split(",") if g.strip()])
 
         if ngpu > 1:
@@ -651,7 +650,7 @@ def build_registry():
 BACKEND_NAMES = ["wan", "seedance", "minimax-local", "minimax-api", "anisora"]
 
 def detect_backend(model_id):
-    """Guess the backend from a generation model id, the way the legacy scripts did.
+    """Guess the backend from a generation model id.
 
     MiniMax is the one ambiguous case: the self-hosted path is addressed by a
     HuggingFace repo id (`MiniMaxAI/MiniMax-H3`), the hosted API by a bare name,

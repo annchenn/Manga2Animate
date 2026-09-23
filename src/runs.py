@@ -2,7 +2,7 @@
 
 Layout:
     <results-root>/<target>/<YYYYmmdd_HHMMSS>/   one pipeline run (magi, character, iter*)
-    <results-root>/<target>/video_fullstoryboard/  video output, NOT per-run
+    <results-root>/<target>/video/              video output, NOT per-run
 
 `run_all.py` picks a run id and exports it as RUN_ID; the pipeline modules read it
 back through `results_dir_from_env`. Tools that consume a finished run (video

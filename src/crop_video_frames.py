@@ -83,7 +83,7 @@ def _hist(frame_small: np.ndarray) -> np.ndarray:
     Frame signature: H-S histogram concatenated with a grayscale intensity histogram.
 
     The colour half carries most of the signal on normal clips; the intensity half
-    is what keeps black-and-white clips (mado) from scoring flat everywhere.
+    is what keeps black-and-white clips from scoring flat everywhere.
     """
     hsv = cv2.cvtColor(frame_small, cv2.COLOR_BGR2HSV)
     gray = cv2.cvtColor(frame_small, cv2.COLOR_BGR2GRAY)
@@ -306,7 +306,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-t", "--target", action="append", dest="targets",
                         help="target name (repeatable); default: every target in story_index.json")
-    parser.add_argument("--results-root", type=Path, default=BASE_DIR / "results_test")
+    parser.add_argument("--results-root", type=Path, default=BASE_DIR / "results")
     parser.add_argument("--dataset-root", type=Path, default=BASE_DIR / "benchmark/vistorybench/data/dataset")
     parser.add_argument("--outputs-root", type=Path, default=BASE_DIR / "benchmark/vistorybench/data/outputs")
     parser.add_argument("--method", default="ours_video")

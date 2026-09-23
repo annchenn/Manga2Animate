@@ -6,19 +6,21 @@
 !/.env.example
 !/README.md
 !/requirements.txt
-!/setup_flux2_env.sh
 
 # ---- ALLOW: source & prompts ----
 !/src/
 !/prompts/
 !/few-shot_example/
 
-# ---- ALLOW: legacy, kept for reference ----
-!/old_src/
-!/old_prompts/
+# ---- ALLOW: paper figure assets ----
+!/figures/
+!/assets/
 
-!/video/
-!/video-seedance/
+# ---- ALLOW: setup for the open-source storyboard/video backends (weights stay outside git) ----
+!/opensource_backends/
+
+# ---- ALLOW: MangaEval, the evaluation code shipped with the paper ----
+!/mangaeval/
 
 # ---- ALLOW: ablation study code (results stay untracked, see below) ----
 # !/ablation/
@@ -33,12 +35,6 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 *.log
-
-# generated video outputs inside the allowed video folders
-/video/pipeline_generations/
-/video-seedance/pipeline_generations/
-/video-seedance/pipeline_generations_manga/
-/video-seedance/pipeline_generations_storyboard/
 
 # ablation: track the code / prompt variants / docs, not the generated results
 /ablation/_dryrun/

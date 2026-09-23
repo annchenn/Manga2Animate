@@ -5,9 +5,8 @@ Runs entirely inside Manga2Animate's own conda env (pure Python — no torch/dif
 imports here). Builds a job-spec JSON describing every panel×variant FLUX.2-dev
 should generate, then shells out via `conda run -n <FLUX2_CONDA_ENV> python
 src/flux2_worker.py --job <job.json>` — the ONLY file allowed to import torch/
-diffusers is src/flux2_worker.py, which runs inside that separate env. Mirrors the
-Skyfall-GS/difix_bridge.py + difix_worker.py pattern used elsewhere in this
-workspace for the same reason (two frameworks with incompatible dependency stacks).
+diffusers is src/flux2_worker.py, which runs inside that separate env (the two
+frameworks have incompatible dependency stacks).
 """
 import json
 import os
@@ -52,10 +51,10 @@ def characters_in_panel(clip: dict) -> list[int]:
 # straight into the clip's "description" text, usually (but not reliably) prefixed
 # "Dialogue:"/"Thoughts:", always in single quotes (this is the only place the
 # script schema uses quotes, so matching quoted spans is a safe, convention-scoped
-# heuristic here — not a general NLP problem). storyboard_test's validated recipe
-# never hit this because its fixed test targets had dialogue hand-stripped out of
-# every clip description once, up front (clean_script.py/targets.py) — Manga2Animate
-# generates descriptions live per run, so that stripping has to happen here instead.
+# heuristic here — not a general NLP problem). Our earlier per-panel experiments
+# never hit this because their fixed test targets had dialogue hand-stripped out of
+# every clip description once, up front — Manga2Animate generates descriptions live
+# per run, so that stripping has to happen here instead.
 # FLUX.2 renders literal quoted text far more readily than Gemini's image model
 # does, and the source manga panel it's editing already has a real speech bubble
 # in the same spot — together those two signals reliably beat the prompt's "no
@@ -66,7 +65,7 @@ def characters_in_panel(clip: dict) -> list[int]:
 # itself contains an apostrophe (e.g. "'I'm up here!'" would only match "'I'" and
 # leave "m up here!'" behind), which is common in real dialogue.
 #
-# Second bug found after a real run (goblin panels 4/5): `(?<!\w)` alone isn't
+# Second bug found after a real run: `(?<!\w)` alone isn't
 # enough to reject a possessive apostrophe like "Character[2]'s face..." — the
 # preceding char is `]`, not a word char, so it still passes as a valid *opening*
 # quote, and the non-greedy `.*?` then happily extends all the way to the *real*
@@ -77,7 +76,7 @@ def characters_in_panel(clip: dict) -> list[int]:
 # negative lookahead right after the opening quote that rejects the apostrophe if
 # it's actually a contraction/possessive suffix ('s/'t/'d/'m/'re/'ll/'ve).
 #
-# Third bug found on DualJustice1 (multi-line dialogue lists): Gemini sometimes
+# Third bug found on a real run (multi-line dialogue lists): Gemini sometimes
 # writes "Character[1] says: 'A', 'B', and 'C'." — a cue word ("says"/"Dialogue"/
 # "Thoughts") followed by a comma/"and"-joined LIST of quotes, not just one. The
 # original regex only ate cue+one-quote, leaving the connectors and a second
@@ -95,7 +94,7 @@ _DIALOGUE_RE = re.compile(
     r"(?:\s*(?:,\s*(?:and\s+)?|and\s+)(?<!\w)'(?!(?:s|t|d|m|re|ll|ve)\b).*?'(?=[\s.,!?]|$))*"
 )
 
-# Fourth bug found on a full DualJustice1 run (iter1, mode="one" — the feedback-
+# Fourth bug found on a full test run (iter1, mode="one" — the feedback-
 # driven create_script_with_one_feedback.txt template, which produces noticeably
 # different phrasing than iter0's without-feedback prompt): dialogue written as a
 # screenplay-style speaker-turn chain with NO quotes at all, e.g. "Dialogue:
@@ -128,7 +127,7 @@ _ONSCREEN_TEXT_RE = re.compile(
     r"(?:sound[- ]effects?|onomatopoeia|katakana(?:\s+text)?|kanji(?:\s+text)?|"
     r"speech[- ]bubbles?|dialogue[- ]boxe?s?|text[- ]bubbles?|"
     r"on[- ]screen text|written text|SFX(?:\s+text)?|lettering|"
-    # Found on a full DualJustice1 run: the prompt-level instruction bans the
+    # Found on a full test run: the prompt-level instruction bans the
     # literal words above, but Gemini just paraphrased around them — "large,
     # prominent graphical letter-like strokes" describes the exact same SFX
     # burst without ever saying "katakana"/"sound effect"/"lettering". Keyword
@@ -160,7 +159,7 @@ def char_identity_map(character_description: dict, best_script: dict | None = No
     character_description.json, but character_description.json itself is never
     rewritten with that correction — so reading only character_description.json
     here would keep serving the pre-correction text forever. Confirmed as a real
-    bug via a DualJustice1 run where character_description.json described id 2 as
+    bug via a test run where character_description.json described id 2 as
     a 'humanoid mecha' while the actual characters/char2.png was a dragon and
     best_script's corrected entry matched the manga; without this override,
     build_prompt() fed FLUX.2 the wrong identity sentence for that character on
@@ -195,15 +194,13 @@ def _identity_phrase(full_desc: str, has_ref_image: bool) -> str:
 def build_prompt(
     clip: dict, referenced_ids: list[int], char_ids_in_panel: list[int], char_identity: dict[int, str]
 ) -> str:
-    """Ported from storyboard_test/experiments/dualjustice1_v2/
-    run_flux2_perpanel_multi.py::build_prompt — validated across 5 targets — plus a few
-    small additions found necessary for Manga2Animate's live-generated (not hand-cleaned)
+    """Ported from our earlier per-panel FLUX.2 experiments — validated across 5
+    targets — plus a few small additions found necessary for Manga2Animate's live-generated (not hand-cleaned)
     scripts: dialogue stripping, a no-invented-character clause, and a brief reference-image
     caveat. Keep the closing constraint sentence SHORT and mentioned ONCE: Flux2Pipeline has
     no negative_prompt, so every word here is positive conditioning to the text encoder, not
     a true negation — piling on repeated/elaborated "no text/no UI/no bubble" phrasing was
-    tried and measurably made things worse (see flux2_bridge.py commit history / session
-    notes), presumably because repeating a concept's tokens raises its salience regardless of
+    tried and measurably made things worse, presumably because repeating a concept's tokens raises its salience regardless of
     the surrounding negation grammar. char_identity now holds each character's FULL
     description (see char_identity_map()) — _identity_phrase() below trims it to just the
     summary clause when an image reference is available, or spells out every segment
@@ -220,7 +217,7 @@ def build_prompt(
         )
     else:
         ref_sentence = ""
-    # Found via a real run on goblin panel 3 (no characters_in_panel): with no
+    # Found via a real run on a panel with no characters_in_panel: with no
     # character described, FLUX.2 sometimes invents a generic anime character to
     # fill the frame instead of keeping the panel's actual (character-less)
     # subject — e.g. a pure sword/energy close-up became "hero holding sword in

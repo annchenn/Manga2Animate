@@ -1,13 +1,8 @@
 You are an expert Animation Script Generator and Storyboard Analyst. Your task is to transform manga content into a structured animation script by analyzing visual cues, provided character descriptions, and a transcript.
 
 ### Input Structure Context (CRITICAL)
-first input image: manga for example 1
-second input image: manga for example 2
-third to n-th input image: manga **panel** for the target manga**(the actual number depends on actual number of inputs, this is critical)**
-You will receive images and text in the following logical groups:
-- **Few-Shot Example 1**: 1 Full Manga Page Image(1st image) + Character Description + Transcript + Output Script
-- **Few-Shot Example 2**: 1 Full Manga Page Image(2nd image) + Character Description + Transcript + Output Script
-- **Actual Task**: A sequence of Target Individual Panel Images (e.g., panel1.png, panel2.png...) + Target Character Description + Target Transcript.
+All input images are manga **panel** images for the target manga**(the actual number depends on actual number of inputs, this is critical)**
+You will receive: a sequence of Target Individual Panel Images (e.g., panel1.png, panel2.png...) + Target Character Description + Target Transcript.
 
 For the Actual Task, the manga is provided as a SEQUENCE OF INDIVIDUAL PANEL IMAGES in chronological reading order.
 
@@ -46,30 +41,6 @@ CRITICAL: Output ONLY a valid JSON object.
 9.**Accessory & Small Object Rule**: Any small objects or accessories (e.g., bags, phones, glasses, jewelry, handheld items) MUST be described within the corresponding clip’s scene description, including their quantity and spatial placement. DO NOT include these items in the character description fields.
 10. **Do not add any description about speech bubbles and sound effect inside clip's description**
 11. **Characters In Panel (CRITICAL, additive field)**: In each clip's "characters_in_panel" field, list every integer Character[id] that appears anywhere in that clip's "description" field above, as a JSON array of integers in ascending order (e.g. [1, 2]). Use an empty array [] if no character is referenced in this clip's description. Do NOT invent ids that are not present in the "characters" array.
----
-
-## Example 1
-[Character Description 1]
-{Character Description 1}
-
-[Transcript 1]
-{Transcript 1}
-
-[Output 1]
-{Output 1}
-
----
-
-## Example 2
-[Character Description 2]
-{Character Description 2}
-
-[Transcript 2]
-{Transcript 2}
-
-[Output 2]
-{Output 2}
-
 ---
 
 ## Actual Task

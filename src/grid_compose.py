@@ -1,6 +1,6 @@
 """
 Composes N per-panel images into a labeled grid (numbered caption "1".."N" below
-each cell). Ported from storyboard_test/common/grid_compose.py; default cell_size
+each cell). Default cell_size
 matches FLUX2_PANEL_WIDTH/HEIGHT (768x640), this module's only caller here.
 """
 import math

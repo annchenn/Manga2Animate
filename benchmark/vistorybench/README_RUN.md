@@ -144,13 +144,63 @@ GPU=1 ./run_bench.sh --method mybaseline --mode base
 | `--metrics` | 可選，預設 `cids csd prompt_align`。另外還有 `aesthetic` `diversity` |
 | `--split lite` | **不要用**，lite 名單裡沒有 `03`，會整個跳過 |
 
-`prompt_align` 走 VLM，設定在 `.env`（`BASE_URL` / `MODEL_ID`，目前指向 Gemini 的 OpenAI 相容
-端點；key 沒寫在這裡，會去讀專案根目錄 `.env` 的 `GEMINI_API_KEY`）。要改用別家就在這個
-`.env` 設 `API_KEY`，它的優先權比 `GEMINI_API_KEY` 高。
+### judge 一律用 gpt-4.1
 
-（別用 OpenAI 那組：那個 org 的 gpt-4.1 TPM 只有 30000，重複評分會整路被 429 擋住。）
+`prompt_align`（以及 CIDS 裡的 PA IA 子項）走 VLM。**judge 固定是 `gpt-4.1`**，設定在
+`benchmark/vistorybench/.env`：
 
-其他 metric 純本地模型，不需要 API。
+```
+BASE_URL=https://api.openai.com/v1
+MODEL_ID=gpt-4.1
+API_KEY=sk-...                 # 優先權高於專案根目錄 .env 的 GEMINI_API_KEY
+VLM_TOKENS_PER_MINUTE=30000    # 節流，見下
+VLM_TOKENS_PER_CALL=1500
+```
+
+**`evaluation_tsv/` 裡現有的每一個 PA 數字都是 gpt-4.1 評的**，換 judge 會讓整欄的分數
+改變，跟既有的列不能放在同一張表。所以：要換 judge 就整張表一起重評，不要只換一個 run。
+
+key 的解析順序是 `--api_key` → `API_KEY` → `GEMINI_API_KEY`
+（[base_evaluator.py:44](vistorybench/bench/base_evaluator.py:44)）。因為根目錄的 `.env` 有
+`GEMINI_API_KEY`，**只要這裡的 `API_KEY` 沒設，就會自動掉回 Gemini 而且不會有任何警告** —
+這正是 2026-09-05 那次誤用 Gemini 跑掉一整批的原因。
+
+#### 節流是必要的，不是可選的
+
+這個 org 的 gpt-4.1 只有 **30000 TPM**，每次評分約 1500 token，等於**一分鐘只能 20 次**。
+`config.yaml` 的 32 個 worker 一起打只會製造 429 風暴，反而比節流還慢。
+[gptv_utils.py 的 `_RateLimiter`](vistorybench/bench/prompt_align/gptv_utils.py) 讀
+`VLM_TOKENS_PER_MINUTE` 把每個請求隔開；設成 `0` 才關閉。啟動時會印一行確認：
+
+```
+VLM rate limit: 30000 TPM / 1500 tokens per call -> 20.0 calls/min (3.00s apart)
+```
+
+**沒看到這行就是沒節流。**
+
+`VLM_TOKENS_PER_CALL` 只是估計值，估低了還是會撞 429，所以限速是自適應的：每次 429 就把
+間隔放寬 1.5 倍（上限 30 秒），連續 25 次正常回應再慢慢收回設定值，最後會收斂到端點實際
+允許的速率。429 時只會等 `Retry-After` 指定的時間並重送同一個請求，不會像其他錯誤那樣調高
+temperature —— 重複評分取樣的條件必須固定。
+
+> 設定是**第一次呼叫時**才讀，不是 import 時。`bench_run.py` 先 import evaluator 才
+> `load_dotenv()`，所以在 import 時讀環境變數會什麼都讀不到、限速靜靜失效 —— 之前寫在
+> `.env` 的 `VLM_TOKENS_PER_MINUTE` 從來沒生效過，只有在 shell 裡 `export` 才有用。
+
+估時間就用這個上限：每個 story 的呼叫數 ÷ 20 = 分鐘數。
+
+| | 每個 story 的 VLM 呼叫 | 一個 run（8 story） |
+|---|---|---|
+| storyboard | 90 (PA) + ~40 (IA) | ~1 小時 |
+| video（每 shot 10 frame） | 900 (PA) + ~40 (IA) | ~8 小時 |
+
+其他 metric（CSD / CIDS cross-self / OCCM）純本地模型，不需要 API 也不花錢。要只跑這些，
+把金鑰拿掉即可：
+
+```bash
+env -u API_KEY -u GEMINI_API_KEY python bench_run.py --language en \
+    --method <method> --mode base --metrics csd cids
+```
 
 ## 3.1 影片：一個 shot 抽 10 張 frame
 

@@ -1,0 +1,27 @@
+# Runtime inputs (kept outside version control because they can be large)
+need_clip/
+
+# Generated workspaces, results, models, and caches
+evaluation_runs/
+evaluation_results/
+.cache/
+third_party/dinov3_official/
+*.csv
+*.xlsx
+*.log
+*.mp4
+*.avi
+*.mov
+*.gif
+*.pt
+*.pth
+*.ckpt
+*.pkl
+
+# Python/editor artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+.DS_Store

@@ -1,0 +1,15 @@
+diff --git a/anisoraV3.2/wan/distributed/fsdp.py b/anisoraV3.2/wan/distributed/fsdp.py
+index 6bb496d..6fcca87 100644
+--- a/anisoraV3.2/wan/distributed/fsdp.py
++++ b/anisoraV3.2/wan/distributed/fsdp.py
+@@ -19,6 +19,10 @@ def shard_model(
+     sharding_strategy=ShardingStrategy.FULL_SHARD,
+     sync_module_states=True,
+ ):
++    # Cast storage to param_dtype before wrapping: the A14B expert checkpoints are fp32
++    # (54GB each) and MixedPrecision only changes compute dtype, not the sharded storage,
++    # so on 2x48GB GPUs the fp32 shards alone would OOM.
++    model = model.to(param_dtype)
+     model = FSDP(
+         module=model,
+         process_group=process_group,

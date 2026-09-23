@@ -107,12 +107,6 @@ RUN_ID = resolve_run_id()
 RUN_DIR = TARGET_RESULTS_DIR / RUN_ID
 RUN_DIR.mkdir(parents=True, exist_ok=True)
 
-# Results written before the timestamped layout sit directly under the target folder;
-# they are not resumable in place, so say so instead of silently redoing the work.
-LEGACY_LAYOUT = (args.auto_resume or args.from_iter is not None) and not args.time and any(
-    (TARGET_RESULTS_DIR / name).exists() for name in ("character", "iter0")
-)
-
 os.environ["TARGET"] = args.target
 os.environ["TARGET_ROOT"] = args.target_root
 os.environ["RESULTS_ROOT"] = args.results_root
@@ -340,13 +334,6 @@ def main():
     )
 
     info(f"Run directory: {RUN_DIR}")
-    if LEGACY_LAYOUT:
-        warn(
-            f"{TARGET_RESULTS_DIR} holds results in the old flat layout (character/, iter*/). "
-            f"They are not resumed. Move them into a run folder to resume them, e.g. "
-            f"mkdir -p {TARGET_RESULTS_DIR}/<timestamp> && mv {TARGET_RESULTS_DIR}/{{character,iter*,log.txt}} "
-            f"{TARGET_RESULTS_DIR}/<timestamp>/"
-        )
 
     record_run_config()
 

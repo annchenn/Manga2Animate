@@ -3,7 +3,7 @@ Runs INSIDE the `sb_diffusers` conda env (never imported by Manga2Animate's own
 env). Reads a job-spec JSON written by src/flux2_bridge.py, generates
 panels x variants with FLUX.2-dev, writes each image as soon as it's ready plus a
 resumable manifest (write after every image; skip already-existing files on
-rerun — mirrors storyboard_test's validated meta.json pattern).
+rerun).
 
 Usage (only ever invoked via `conda run -n sb_diffusers`):
     python src/flux2_worker.py --job <path/to/flux2_job.json>
@@ -35,7 +35,7 @@ def main():
     print(f"[flux2_worker] loading {job['model_id']} (bf16, {mode}) ...", flush=True)
     pipe = Flux2Pipeline.from_pretrained(job["model_id"], torch_dtype=torch.bfloat16)
     if cpu_offload:
-        # Safe default (storyboard_test's validated recipe): keeps most weights on
+        # Safe default: keeps most weights on
         # CPU RAM, streams submodules to GPU on demand. Works on small GPUs but
         # pays real PCIe-transfer overhead on every single pipe() call.
         pipe.enable_model_cpu_offload()

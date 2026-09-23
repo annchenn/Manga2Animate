@@ -4,7 +4,7 @@
 next to `log.txt`.
 
 Storyboard models only. Video generation is a separate stage with its own run
-folders under `<target>/video_fullstoryboard/<model>/run_*`, so `VIDEO_*` from
+folders under `<target>/video/<model>/run_*`, so `VIDEO_*` from
 `.env` says nothing about what this run did and is deliberately left out.
 """
 

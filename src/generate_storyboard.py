@@ -12,7 +12,6 @@ load_dotenv()
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent.parent
-FEW_SHOT_DIR = BASE_DIR / "few-shot_example"
 _target = os.environ.get("TARGET", "")
 _target_root = os.environ.get("TARGET_ROOT", "target")
 TARGET_DIR = BASE_DIR / _target_root / _target if _target else BASE_DIR / _target_root
@@ -22,18 +21,9 @@ PROMPT_FILE = BASE_DIR / "prompts" / "create_storyboard.txt"
 MODEL = os.environ.get("IMAGE_MODEL", "gemini-3-pro-image")
 NUM_STORYBOARDS = int(os.environ.get("NUM_STORYBOARDS", "3"))
 NUM_CLIPS = int(os.environ.get("NUM_CLIPS", "6"))
-EXP1 = int(os.environ.get("EXP1", "0"))
-EXP2 = int(os.environ.get("EXP2", "3"))
 STORYBOARD_BACKEND = os.environ.get("STORYBOARD_BACKEND", "gemini")
 
 client = make_genai_client()
-
-
-def find_image(directory: Path, stem: str) -> Path:
-    matches = list(directory.glob(f"{stem}.*"))
-    if not matches:
-        raise FileNotFoundError(f"No image found for '{stem}' in {directory}")
-    return matches[0]
 
 
 def iter_dir(iteration: int) -> Path:
@@ -42,17 +32,6 @@ def iter_dir(iteration: int) -> Path:
 
 def build_storyboard_prompt(best_script: dict) -> str:
     template = PROMPT_FILE.read_text(encoding="utf-8")
-    script_exp1 = json.loads((FEW_SHOT_DIR / f"script{EXP1}.json").read_text(encoding="utf-8"))
-    script_exp2 = json.loads((FEW_SHOT_DIR / f"script{EXP2}.json").read_text(encoding="utf-8"))
-
-    template = template.replace(
-        "{Example 1 Animation Script}",
-        json.dumps(script_exp1, ensure_ascii=False, indent=2),
-    )
-    template = template.replace(
-        "{Example 2 Animation Script}",
-        json.dumps(script_exp2, ensure_ascii=False, indent=2),
-    )
     template = template.replace(
         "{Target Animation Script}",
         json.dumps(best_script, ensure_ascii=False, indent=2),
@@ -65,12 +44,6 @@ def generate_one(best_script: dict, iteration: int, sb_index: int):
 
     image_paths = [
         *(TARGET_DIR / "manga_panels" / f"panel{i}.png" for i in range(1, NUM_CLIPS + 1)),
-        find_image(FEW_SHOT_DIR, f"manga_page{EXP1}"),
-        find_image(FEW_SHOT_DIR, f"ref{EXP1}"),
-        find_image(FEW_SHOT_DIR, f"example{EXP1}"),
-        find_image(FEW_SHOT_DIR, f"manga_page{EXP2}"),
-        find_image(FEW_SHOT_DIR, f"ref{EXP2}"),
-        find_image(FEW_SHOT_DIR, f"example{EXP2}"),
         *(p for _, p in find_character_ref_images(TARGET_DIR)),
     ]
 

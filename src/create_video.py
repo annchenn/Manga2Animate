@@ -15,13 +15,11 @@ Two routes, picked from the model rather than from a flag:
       also sees the previous panel's winner and weights coherency at 0.4. The
       winners are concatenated into the final video.
 
-Both routes read from  <results-root>/<target>/[<run>/]iter<N>/  — iter1 by
-default, `--iter` to change it.
+Both routes read from  <results-root>/<target>/[<run>/]iter<N>/  — by default the
+newest iteration that has a storyboard, `--iter` to pin one.
 
 The per-model API details live in `video_models.py`; adding a model means adding
-an entry there, not editing this file. `create_video_single.py` and
-`create_video_fullstoryboard.py` are the original single-route scripts, kept as
-backups.
+an entry there, not editing this file.
 """
 
 import argparse
@@ -67,6 +65,10 @@ IMG_EXTS = ("png", "jpg", "jpeg", "webp")
 # exactly and further candidates step off from there. Ignored by the hosted
 # providers, which never took a seed.
 BASE_SEED = 4096
+# The iteration a full pipeline run ends on (NUM_ITERATIONS=2 → iter0, then the
+# refined iter1). Only used to word the fallback message: dropping below it means
+# generating from an unrefined storyboard.
+EXPECTED_LAST_ITER = 1
 
 
 # ======================
@@ -545,23 +547,38 @@ def run_i2v_route(args, backend, paths, run_dir, reviewer):
 # PATHS
 # ======================
 def find_iter_dir(run_dir, iteration):
-    """The requested iter, or the newest one that actually has a storyboard."""
+    """The iter pinned by --iter, or the newest one that actually has a storyboard.
+
+    Auto-selection means a run that never produced its last iteration still generates from the one it
+    did. Every iteration passed over on the way down is logged: falling back to
+    an earlier storyboard changes what gets generated, so it must not be silent.
+    """
     if iteration is not None:
         d = run_dir / f"iter{iteration}"
         if not d.is_dir():
             available = sorted(p.name for p in run_dir.glob("iter*") if p.is_dir())
             raise FileNotFoundError(
                 f"iter{iteration} not found under {run_dir}. Available: "
-                f"{', '.join(available) or 'none'} (--iter picks one, --iter -1 the newest)"
+                f"{', '.join(available) or 'none'} (--iter pins one, omit it for the newest)"
             )
         return d
-    candidates = sorted(
-        (p for p in run_dir.glob("iter*") if p.is_dir() and re.fullmatch(r"iter\d+", p.name)),
-        key=lambda p: int(p.name[4:]),
-        reverse=True,
-    )
-    for d in candidates:
+
+    existing = {
+        int(p.name[4:]): p
+        for p in run_dir.glob("iter*")
+        if p.is_dir() and re.fullmatch(r"iter\d+", p.name)
+    }
+    if not existing:
+        raise FileNotFoundError(f"No iter* directory under {run_dir}")
+
+    for idx in sorted(existing, reverse=True):
+        d = existing[idx]
         if any((d / f"bestStoryboard.{e}").exists() for e in IMG_EXTS):
+            # Report each iteration above the winner, up to the one the pipeline
+            # normally ends on, so "generated from iter0" always says why.
+            for skipped in range(idx + 1, max(max(existing), EXPECTED_LAST_ITER) + 1):
+                reason = "has no bestStoryboard" if skipped in existing else "does not exist"
+                log.warn(f"iter{skipped} {reason} — using {d.name} instead")
             return d
     raise FileNotFoundError(f"No iter* with a bestStoryboard under {run_dir}")
 
@@ -631,7 +648,7 @@ def parse_args():
                     "models generate the whole story in one video, i2v models generate "
                     "one clip per storyboard panel."
     )
-    parser.add_argument("-t", "--target", required=True, help="Target folder name, e.g. elf2")
+    parser.add_argument("-t", "--target", required=True, help="Target folder name under the target root")
     parser.add_argument("-m", "--model", default=None, choices=BACKEND_NAMES,
                         help="Video model. ref-route: seedance, minimax-local, minimax-api. "
                              "i2v-route: wan, anisora. Omit to detect it from "
@@ -641,9 +658,10 @@ def parse_args():
     parser.add_argument("--results-root", default="results", help="Directory holding the results")
     parser.add_argument("--time", default=None,
                         help="Pipeline run timestamp under <results-root>/<target>/ (default: newest)")
-    parser.add_argument("--iter", type=int, default=1,
-                        help="Iteration to read bestStoryboard/bestScript from (default: 1; "
-                             "pass -1 for the newest iter that has a storyboard)")
+    parser.add_argument("--iter", type=int, default=None,
+                        help="Iteration to read bestStoryboard/bestScript from "
+                             "(default: the newest iter that has a storyboard; a "
+                             "fallback to an earlier one is logged)")
     parser.add_argument("--panel-count", type=int, default=6, help="i2v route: number of panels")
     parser.add_argument("--auto-resume", action="store_true",
                         help="Continue the newest run_* folder instead of starting a new one")
@@ -673,9 +691,9 @@ def main():
     # reference image or it does not.
     mode = backend.mode
 
+    log.section(f"Video Pipeline — {backend.name} ({mode} route) — {args.target}")
     paths = build_paths(args, backend)
 
-    log.section(f"Video Pipeline — {backend.name} ({mode} route) — {args.target}")
     if from_env:
         log.info("model        : from VIDEO_GENERATION_MODEL (no -m given)")
     log.info(f"pipeline run : {paths['pipeline_run_dir'].name}")
