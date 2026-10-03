@@ -70,6 +70,11 @@
     max-width: 40em;
     text-wrap: balance;
   }
+  .authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px; font-size: 1.12rem; margin: 0 0 4px; }
+  .authors a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .authors a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .authors sup, .affil sup { font-size: 0.65em; margin-left: 1px; }
+  .affil { color: var(--muted); margin: 0 0 22px; }
   .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -78,7 +83,9 @@
     border-radius: 999px;
     background: var(--ink); color: var(--paper); text-decoration: none;
   }
-  .btn[aria-disabled="true"] { background: var(--surface); color: var(--muted); cursor: default; }
+  .btn:hover { background: var(--accent); }
+  .btn:not([href]) { cursor: default; }
+  .btn:not([href]):hover { background: var(--ink); }
   @media (max-width: 720px) { .hero { padding-block: 36px 24px; } }
 
   /* ---------- Teaser: four clips side by side ---------- */
@@ -238,9 +245,20 @@
   <header class="hero">
     <h1><img class="logo" src="static/logo/logo_sq2_light.png" alt="Manga2Animate logo"><span>Manga<span class="two">2</span>Animate</span></h1>
     <p class="subtitle">An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</p>
+    <div class="authors">
+      <span><a href="https://github.com/bbbguji" target="_blank" rel="noopener">Sheng-Wei Zhang</a><sup>1</sup></span>
+      <span><a href="https://www.linkedin.com/in/annchen1234/" target="_blank" rel="noopener">Hsi-An Chen</a><sup>1</sup></span>
+      <span><a href="https://github.com/timidtimmm" target="_blank" rel="noopener">Yan-Ting Liou</a><sup>1</sup></span>
+      <span><a href="https://www.linkedin.com/in/chchen825/" target="_blank" rel="noopener">Chih-Hsuan Chen</a><sup>1</sup></span>
+      <span><a href="https://www.linkedin.com/in/%E5%A3%AB%E7%8F%8D-%E6%9B%BE-125166331/" target="_blank" rel="noopener">Shih-Chen Tseng</a><sup>1</sup></span>
+      <span><a href="https://yulunalexliu.github.io/" target="_blank" rel="noopener">Yu-Lun Liu</a><sup>1</sup></span>
+    </div>
+    <p class="affil"><sup>1</sup>National Yang Ming Chiao Tung University</p>
     <div class="links">
-      <span class="btn" aria-disabled="true">Paper (coming soon)</span>
-      <span class="btn" aria-disabled="true">Code (coming soon)</span>
+      <!-- TODO: Paper and arXiv URLs -->
+      <a class="btn">Paper</a>
+      <a class="btn">arXiv</a>
+      <a class="btn" href="https://github.com/annchenn/Manga2Animate" target="_blank" rel="noopener">Code</a>
     </div>
   </header>
 
