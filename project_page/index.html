@@ -437,12 +437,11 @@
   const reveal = document.getElementById("method-reveal");
   if ("IntersectionObserver" in window) {
     reveal.classList.add("reveal");
-    // Start only once the (a)(b)(c) text row is on screen too, so each figure block and its
-    // text appear together where the reader can see both.
+    // Start as soon as the top of the figure scrolls into view.
     const ro = new IntersectionObserver(es => {
       if (es.some(e => e.isIntersecting)) { reveal.classList.add("shown"); ro.disconnect(); }
-    }, { threshold: 0.9 });
-    ro.observe(reveal.querySelector(".stages"));
+    }, { threshold: 0.15 });
+    ro.observe(reveal.querySelector(".method-fig"));
   }
 </script>
 </body>
