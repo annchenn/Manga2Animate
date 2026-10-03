@@ -74,7 +74,7 @@
   .authors a { color: #5b8fd9; text-decoration: none; }
   .authors a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
   .authors sup, .affil sup { font-size: 0.65em; margin-left: 1px; }
-  .affil { color: var(--muted); font-size: 0.92rem; margin: 0 0 22px; }
+  .affil { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 24px; color: var(--muted); font-size: 0.92rem; margin: 0 0 22px; }
   .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -247,14 +247,14 @@
     <h1><img class="logo" src="static/logo/logo_sq2_light.png" alt="Manga2Animate logo"><span>Manga<span class="two">2</span>Animate</span></h1>
     <p class="subtitle">An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</p>
     <div class="authors">
-      <span><a href="https://github.com/bbbguji" target="_blank" rel="noopener">Sheng-Wei Zhang</a><sup>1</sup></span>
-      <span><a href="https://www.linkedin.com/in/annchen1234/" target="_blank" rel="noopener">Hsi-An Chen</a><sup>1</sup></span>
-      <span><a href="https://github.com/timidtimmm" target="_blank" rel="noopener">Yan-Ting Liou</a><sup>1</sup></span>
+      <span><a href="https://github.com/bbbguji" target="_blank" rel="noopener">Sheng-Wei Zhang</a><sup>1*</sup></span>
+      <span><a href="https://www.linkedin.com/in/annchen1234/" target="_blank" rel="noopener">Hsi-An Chen</a><sup>1*</sup></span>
+      <span><a href="https://github.com/timidtimmm" target="_blank" rel="noopener">Yan-Ting Liou</a><sup>1*</sup></span>
       <span><a href="https://www.linkedin.com/in/chchen825/" target="_blank" rel="noopener">Chih-Hsuan Chen</a><sup>1</sup></span>
       <span><a href="https://www.linkedin.com/in/%E5%A3%AB%E7%8F%8D-%E6%9B%BE-125166331/" target="_blank" rel="noopener">Shih-Chen Tseng</a><sup>1</sup></span>
       <span><a href="https://yulunalexliu.github.io/" target="_blank" rel="noopener">Yu-Lun Liu</a><sup>1</sup></span>
     </div>
-    <p class="affil"><sup>1</sup>National Yang Ming Chiao Tung University</p>
+    <p class="affil"><span><sup>1</sup>National Yang Ming Chiao Tung University</span><span><sup>*</sup>Equal contribution</span></p>
     <div class="links">
       <!-- TODO: Paper and arXiv URLs -->
       <a class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>Paper</a>
