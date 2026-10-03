@@ -1,0 +1,6 @@
+.vercel
+.env*
+
+# not part of the site
+manga2animate figures.pdf
+static/logo/logo_soft_*

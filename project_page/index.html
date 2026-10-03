@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Manga2Animate</title>
+<meta name="description" content="Manga2Animate: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning.">
+<link rel="icon" href="static/logo/logo_sq2_light.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  /* Layout: a quiet white page with soft rounded media and almost no rules; colour comes
+     from the clips themselves. Pastel blue/peach accents echo the logo. Single light theme by choice. */
+  :root {
+    --paper: #ffffff;
+    --surface: #f5f7fa;        /* soft panels behind media and figures */
+    --ink: #2c313b;
+    --muted: #747b88;
+    --line: #e7eaf0;           /* hairlines, used sparingly */
+    --accent: #4f7fc9;         /* soft cel-blue */
+    --accent-soft: #e8f0fb;
+    --peach: #f6d9c8;
+    --font-display: "Plus Jakarta Sans", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Segoe UI", system-ui, sans-serif;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --gap: 14px;
+    --shadow: 0 6px 24px rgba(44, 49, 59, 0.07);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 18px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 1.06rem;
+    line-height: 1.75;
+    padding-inline: max(16px, 3vw);
+    padding-block: 0 48px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  img, video { max-width: 100%; display: block; }
+  a { color: var(--accent); }
+  button { font: inherit; color: inherit; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding-block: 60px 36px; }
+  .hero h1 {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.28em; flex-wrap: wrap;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.8rem, 4vw, 2.7rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0 0 12px;
+  }
+  .hero h1 .logo { height: 1em; width: auto; }
+  .hero h1 .two { color: var(--accent); }
+  .hero .subtitle {
+    font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.5;
+    margin: 0 auto 22px;
+    max-width: 40em;
+    text-wrap: balance;
+  }
+  .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 1rem; font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: var(--ink); color: var(--paper); text-decoration: none;
+  }
+  .btn[aria-disabled="true"] { background: var(--surface); color: var(--muted); cursor: default; }
+  @media (max-width: 720px) { .hero { padding-block: 36px 24px; } }
+
+  /* ---------- Teaser: four clips side by side ---------- */
+  .page-wall { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+  .panel {
+    position: relative;
+    border: 0; border-radius: var(--radius);
+    background: var(--surface);
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    padding: 0;
+    cursor: zoom-in;
+    box-shadow: var(--shadow);
+  }
+  .panel video { width: 100%; height: 100%; object-fit: cover; }
+  @media (max-width: 720px) { .page-wall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* ---------- Sections ---------- */
+  section { padding-block: 72px 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0 0 20px; }
+  .sec-head h2 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(1.3rem, 2.4vw, 1.6rem); line-height: 1.2; margin: 0;
+    text-wrap: balance;
+    text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 2px;
+  }
+  .prose { max-width: none; }
+  #abstract .prose p { text-align: justify; }
+  .prose p { margin: 0 0 1em; }
+
+  /* ---------- Method ---------- */
+  .method-fig {
+    display: block; width: 100%; max-width: 1000px;
+    border: 0; padding: 0; margin: 8px auto 26px; background: none;
+    cursor: zoom-in;
+  }
+  /* Five cumulative build-up frames of the pipeline figure (overview, +a, +b, +c, +final video),
+     stacked on top of each other; each later frame fades in over the previous one. */
+  .fig-stack { position: relative; display: block; }
+  .fig-stack img { width: 100%; height: auto; }
+  .fig-stack .sizer { visibility: hidden; }
+  .fig-stack .part { position: absolute; inset: 0; }
+  .reveal .part, .reveal .stage { opacity: 0; transition: opacity 0.9s ease, transform 0.9s ease; }
+  .reveal .stage { transform: translateY(12px); }
+  .reveal.shown .part, .reveal.shown .stage { opacity: 1; transform: none; }
+  .reveal .s1 { transition-delay: 0s; }
+  .reveal .s2, .reveal .stage.sa { transition-delay: 0.8s; }
+  .reveal .s3, .reveal .stage.sb { transition-delay: 1.6s; }
+  .reveal .s4, .reveal .stage.sc { transition-delay: 2.4s; }
+  .reveal .s5 { transition-delay: 3.2s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal .part, .reveal .stage { opacity: 1; transform: none; transition: none; }
+  }
+  .stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  .stage { min-width: 0; }
+  .stage .tag {
+    display: inline-block; font-size: 0.95rem; font-weight: 700; color: var(--ink);
+    background: var(--surface); border-radius: 999px; padding: 0 10px;
+  }
+  /* label colours taken from the (a)/(b)/(c) title pills in the pipeline figure */
+  .stage.sa .tag { background: #e5bdff; }
+  .stage.sb .tag { background: #ffcd79; }
+  .stage.sc .tag { background: #f8e767; }
+  .stage h3 { font-size: 1.12rem; margin: 6px 0 2px; }
+  .stage p { margin: 0; font-size: 1rem; color: var(--ink); line-height: 1.65; }
+  @media (max-width: 720px) { .stages { grid-template-columns: 1fr; } }
+
+  /* ---------- Comparison ---------- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+  .tab {
+    font-size: 1rem; font-weight: 500; line-height: 1.3;
+    padding: 8px 16px; border: 0; border-radius: 999px;
+    background: var(--surface); color: var(--ink);
+    cursor: pointer; text-align: left;
+  }
+  .tab:hover { background: var(--accent-soft); }
+  .tab[aria-selected="true"] { background: var(--accent); color: var(--paper); }
+
+  .scene-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.6fr); gap: 22px; align-items: center; }
+  .source { min-width: 0; }
+  .source .label, .vcell .label, .case .label {
+    font-size: 1rem; font-weight: 500; color: var(--muted); margin: 0 0 6px;
+  }
+  .pages { display: grid; gap: 10px; justify-items: center; align-items: center; }
+  .pages.row { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .scene-layout .pages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .scene-layout .pages.n1 { grid-template-columns: minmax(0, 1fr); }
+  .scene-layout .pages.n3 > :last-child { grid-column: 1 / -1; width: calc(50% - 5px); justify-self: center; }
+  .page-thumb {
+    border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden;
+    padding: 0; background: var(--paper); cursor: zoom-in;
+    display: block; width: 100%;
+  }
+  .page-thumb img { width: 100%; height: auto; }
+
+  .vgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); min-width: 0; }
+  .vcell { min-width: 0; }
+  .vcell .frame, .case .frame {
+    border-radius: var(--radius-sm); overflow: hidden; background: #15171c; aspect-ratio: 16 / 9;
+  }
+  .vcell .frame video, .case .frame video { width: 100%; height: 100%; object-fit: contain; }
+  .vcell .label { margin: 6px 0 0; color: var(--ink); }
+  .vcell.ours .frame, .case .frame { box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+  .vcell.ours .label { color: var(--accent); font-weight: 700; }
+  .scene-tools { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+  .ghost {
+    font-size: 0.95rem; font-weight: 500; line-height: 1;
+    padding: 8px 14px; border: 0; border-radius: 999px;
+    background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .ghost:hover { background: var(--accent-soft); }
+  @media (max-width: 900px) {
+    .scene-layout { grid-template-columns: 1fr; }
+    .scene-layout .pages, .scene-layout .pages.n1 { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+    .scene-layout .pages.n3 > :last-child { grid-column: auto; width: auto; }
+    }
+  @media (max-width: 520px) { .vgrid { grid-template-columns: 1fr; } }
+
+  /* ---------- More cases ---------- */
+  .cases { display: grid; gap: 40px; }
+  .case { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 22px; align-items: center; }
+  .case h3 { grid-column: 1 / -1; margin: 0; font-size: 1.15rem; }
+  .case h3 .note { font-size: 0.9em; font-weight: 700; color: #2f5ea8; background: var(--accent-soft); border-radius: 999px; padding: 2px 12px; margin-left: 10px; }
+  @media (max-width: 720px) { .case { grid-template-columns: 1fr; } }
+
+  /* ---------- Scroll-in: each section floats up when it comes into view ---------- */
+  .fx { opacity: 0; transform: translateY(28px); transition: opacity 0.9s ease, transform 0.9s ease; }
+  .fx.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .fx { opacity: 1; transform: none; transition: none; } }
+
+  /* ---------- Footer ---------- */
+  footer { margin-top: 88px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.95rem; color: var(--muted); }
+  footer p { margin: 0 0 0.8em; }
+
+  /* ---------- Viewer dialog ---------- */
+  dialog {
+    border: 0; border-radius: var(--radius); padding: 0;
+    max-width: min(1200px, calc(100vw - 32px)); width: 100%;
+    max-height: calc(100vh - 32px); background: var(--paper); color: var(--ink);
+    box-shadow: 0 20px 60px rgba(20, 24, 32, 0.25);
+  }
+  dialog::backdrop { background: rgba(30, 34, 42, 0.55); }
+  .dlg-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .dlg-bar h3 { margin: 0; font-size: 1.1rem; }
+  .dlg-body { padding: 16px; overflow: auto; max-height: calc(100vh - 100px); }
+  .dlg-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 16px; align-items: start; }
+  .dlg-pair .pages { grid-auto-flow: row; }
+  .dlg-pair .pages img { border-radius: var(--radius-sm); border: 1px solid var(--line); }
+  .dlg-pair video { width: 100%; border-radius: var(--radius-sm); background: #15171c; }
+  .dlg-img { max-width: 100%; margin: 0 auto; border-radius: var(--radius-sm); }
+  @media (max-width: 720px) { .dlg-pair { grid-template-columns: 1fr; } .dlg-pair .pages { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1><img class="logo" src="static/logo/logo_sq2_light.png" alt="Manga2Animate logo"><span>Manga<span class="two">2</span>Animate</span></h1>
+    <p class="subtitle">An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</p>
+    <div class="links">
+      <span class="btn" aria-disabled="true">Paper (coming soon)</span>
+      <span class="btn" aria-disabled="true">Code (coming soon)</span>
+    </div>
+  </header>
+
+  <!-- Hero: generated clips laid out as a manga page -->
+  <div class="page-wall" id="wall" aria-label="Animations generated by Manga2Animate"></div>
+
+  <section id="abstract">
+    <div class="sec-head"><h2>Abstract</h2></div>
+    <div class="prose">
+      <p>Adapting existing manga into coherent animation that stays faithful to the source is a valuable yet challenging task. Existing methods either access the manga mainly through text, losing its characters and art style, or feed manga pages directly into video generation models, which misinterpret the manga's structure and produce incorrect storylines. In this paper, we propose <b>Manga2Animate</b>, a multi-agent framework that grounds every stage of generation in the source manga. We decompose the task into two intermediate representations, an animation script and a visual storyboard. Each representation is produced by a creator agent and reviewed against the source panels by a paired reviewer agent. We tailor representation-specific selection and dual-level feedback to progressively refine both before synthesizing the final animation. Extensive experiments and a user study demonstrate that Manga2Animate produces animations more faithful to the source manga and more consistent across shots than state-of-the-art approaches.</p>
+    </div>
+  </section>
+
+  <section id="method">
+    <div class="sec-head"><h2>Method</h2></div>
+    <div class="prose">
+      <p>Following real animation production, Manga2Animate first writes an animation script, then draws a visual storyboard, and only then generates the video. Each step is made by a creator agent and checked against the source manga panels by a reviewer agent.</p>
+    </div>
+    <div id="method-reveal">
+    <button class="method-fig" type="button" data-zoom="static/figures/pipeline_step5.png" aria-label="Open the pipeline figure full size">
+      <span class="fig-stack">
+        <img class="sizer" src="static/figures/pipeline_step5.png" alt="Overview of the Manga2Animate pipeline: pre-processing, script and storyboard refinement, video generation">
+        <img class="part s1" src="static/figures/pipeline_step1.png" alt="">
+        <img class="part s2" src="static/figures/pipeline_step2.png" alt="">
+        <img class="part s3" src="static/figures/pipeline_step3.png" alt="">
+        <img class="part s4" src="static/figures/pipeline_step4.png" alt="">
+        <img class="part s5" src="static/figures/pipeline_step5.png" alt="">
+      </span>
+    </button>
+    <div class="stages">
+      <div class="stage sa"><span class="tag">(a)</span><h3>Pre-processing</h3><p>Extract ordered panels, a transcript, and character descriptions from the manga pages.</p></div>
+      <div class="stage sb"><span class="tag">(b)</span><h3>Script &amp; storyboard refinement</h3><p>Creators and reviewers refine the script and storyboard over rounds, with dual-level feedback guiding the next round.</p></div>
+      <div class="stage sc"><span class="tag">(c)</span><h3>Video generation</h3><p>Generate the animation from the best script and storyboard, in first-frame or reference-conditioned mode.</p></div>
+    </div>
+    </div>
+  </section>
+
+  <section id="comparison">
+    <div class="sec-head"><h2>Comparison with Baselines</h2></div>
+    <div class="tabs" role="tablist" id="scene-tabs"></div>
+    <div id="scene-view"></div>
+  </section>
+
+  <section id="more-cases">
+    <div class="sec-head"><h2>More Cases</h2></div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <footer>
+    <p>All manga pages shown here are the copyrighted property of their original creators and publishers. They are used solely for non-commercial academic research and qualitative comparison. The videos and generated images are AI-generated research outputs; they are not official adaptations and are not affiliated with, endorsed by, or sponsored by the original creators, publishers, or rights holders. Rights holders who wish to have an excerpt or the videos generated from it removed may contact us, and we will comply promptly.</p>
+  </footer>
+</div>
+
+<dialog id="viewer" aria-labelledby="viewer-title">
+  <div class="dlg-bar"><h3 id="viewer-title"></h3><button class="ghost" type="button" id="viewer-close">Close</button></div>
+  <div class="dlg-body" id="viewer-body"></div>
+</dialog>
+
+<script>
+  const IMG = "static/images/", VID = "static/videos/";
+  // id -> case number (numbered across the page) and source pages (from the supplementary material)
+  const CASES = {
+    "goblin":           { n: 1, pages: ["goblin_manga_1.jpg", "goblin_manga_2.jpg", "goblin_manga_3.jpg"] },
+    "elf":              { n: 2, pages: ["elf_manga.jpg"] },
+    "lovehina":         { n: 3, pages: ["lovehina_manga.jpg"] },
+    "elf3":             { n: 4, pages: ["elf3_manga.jpg"] },
+    "baseball":         { n: 5, pages: ["baseball_manga_1.jpg", "baseball_manga_2.jpg", "baseball_manga_3.jpg"] },
+    "trigger":          { n: 6, pages: ["trigger_manga_1.jpg", "trigger_manga_2.jpg"] },
+    "dualjustice1":     { n: 7, pages: ["dualjustice1_manga_1.jpg", "dualjustice1_manga_2.jpg"] },
+    "dualjustice-kick": { n: 8, pages: ["dualjustice-kick_manga_1.jpg", "dualjustice-kick_manga_2.jpg"] },
+    "dualjustice2":     { n: 9, pages: ["dualjustice2_manga_1.jpg", "dualjustice2_manga_2.jpg"], note: "open-source image and video generators" },
+  };
+  const caseName = id => `Case ${CASES[id].n}`;
+  const WALL = ["goblin", "elf3", "baseball", "trigger"];  // same four cases as the paper teaser
+  const MORE = ["baseball", "trigger", "dualjustice1", "dualjustice-kick", "dualjustice2"];
+  const SCENES = ["goblin", "elf", "lovehina", "elf3"];
+  const METHODS = [["ours", "Ours"], ["animaker", "AniMaker"], ["vimax", "ViMax"], ["storymem", "StoryMem"]];
+
+  const el = (tag, attrs = {}, kids = []) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+    }
+    for (const c of [].concat(kids)) if (c) n.append(c);
+    return n;
+  };
+  const video = (src, controls) => {
+    const v = el("video", { src, preload: "metadata", playsinline: "" });
+    v.muted = true; v.loop = true; v.playsInline = true;
+    if (controls) v.controls = true;
+    return v;
+  };
+
+  // Play videos only while they are on screen.
+  const io = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting) e.target.play().catch(() => {}); else e.target.pause();
+    }
+  }, { threshold: 0.25 });
+  const watch = root => root.querySelectorAll("video").forEach(v => io.observe(v));
+
+  // ---------- Hero wall ----------
+  const wall = document.getElementById("wall");
+  WALL.forEach((id, i) => {
+    const c = CASES[id];
+    const b = el("button", { class: "panel", type: "button", "aria-label": `${caseName(id)}: show source manga` },
+      video(`${VID}${id}/ours.mp4`, false));
+    b.addEventListener("click", () => openCase(id));
+    wall.append(b);
+  });
+  watch(wall);
+
+  // ---------- Viewer ----------
+  const dlg = document.getElementById("viewer"), dlgBody = document.getElementById("viewer-body"), dlgTitle = document.getElementById("viewer-title");
+  const pageList = pages => el("div", { class: "pages" }, pages.map(p => el("img", { src: IMG + p, alt: "Source manga page", loading: "lazy" })));
+  function openCase(id) {
+    const c = CASES[id];
+    dlgTitle.textContent = caseName(id);
+    const v = video(`${VID}${id}/ours.mp4`, true);
+    dlgBody.replaceChildren(el("div", { class: "dlg-pair" }, [
+      pageList(c.pages),
+      v,
+    ]));
+    dlg.showModal();
+    v.play().catch(() => {});
+  }
+  function openImage(src, alt) {
+    dlgTitle.textContent = alt || "";
+    dlgBody.replaceChildren(el("img", { class: "dlg-img", src, alt: alt || "" }));
+    dlg.showModal();
+  }
+  dlg.addEventListener("close", () => dlgBody.replaceChildren());
+  document.getElementById("viewer-close").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+  document.addEventListener("click", e => {
+    const z = e.target.closest("[data-zoom]");
+    if (z) openImage(z.dataset.zoom, z.querySelector("img")?.alt);
+  });
+
+  // ---------- Comparison tabs ----------
+  const tabs = document.getElementById("scene-tabs"), view = document.getElementById("scene-view");
+  function showScene(idx) {
+    const id = SCENES[idx], c = CASES[id];
+    tabs.querySelectorAll(".tab").forEach((t, i) => t.setAttribute("aria-selected", String(i === idx)));
+    view.querySelectorAll("video").forEach(v => { io.unobserve(v); v.pause(); });
+    const vids = METHODS.map(([m, name]) =>
+      el("div", { class: "vcell" + (m === "ours" ? " ours" : "") }, [
+        el("div", { class: "frame" }, video(`${VID}${id}/${m}.mp4`, true)),
+        el("p", { class: "label", text: name }),
+      ]));
+    const restart = el("button", { class: "ghost", type: "button", text: "Restart all four" });
+    const thumbs = el("div", { class: `pages n${c.pages.length}` }, c.pages.map((p, i) =>
+      el("button", { class: "page-thumb", type: "button", "data-zoom": IMG + p },
+        el("img", { src: IMG + p, alt: `${caseName(id)}, source page ${i + 1}` }))));
+    view.replaceChildren(el("div", { class: "scene-layout", role: "tabpanel" }, [
+      el("div", { class: "source" }, thumbs),
+      el("div", {}, [el("div", { class: "scene-tools" }, restart), el("div", { class: "vgrid" }, vids)]),
+    ]));
+    restart.addEventListener("click", () => view.querySelectorAll("video").forEach(v => { v.currentTime = 0; v.play().catch(() => {}); }));
+    watch(view);
+  }
+  SCENES.forEach((id, i) => {
+    const t = el("button", { class: "tab", type: "button", role: "tab" }, caseName(id));
+    t.addEventListener("click", () => showScene(i));
+    tabs.append(t);
+  });
+  showScene(0);
+
+  // ---------- More cases ----------
+  const cases = document.getElementById("cases");
+  MORE.forEach(id => {
+    const c = CASES[id];
+    const head = el("h3", {}, [caseName(id), c.note ? el("span", { class: "note", text: c.note }) : null]);
+    const thumbs = el("div", { class: "pages" + (c.pages.length > 1 ? " row" : "") }, c.pages.map((p, i) =>
+      el("button", { class: "page-thumb", type: "button", "data-zoom": IMG + p },
+        el("img", { src: IMG + p, alt: `${caseName(id)}, source page ${i + 1}`, loading: "lazy" }))));
+    cases.append(el("article", { class: "case" }, [
+      head,
+      el("div", { class: "source" }, thumbs),
+      el("div", { class: "frame" }, video(`${VID}${id}/ours.mp4`, true)),
+    ]));
+  });
+  watch(cases);
+
+  // ---------- Sections float in as they scroll into view ----------
+  if ("IntersectionObserver" in window) {
+    const fxo = new IntersectionObserver(es => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); fxo.unobserve(e.target); }
+    }, { threshold: 0.12 });
+    document.querySelectorAll("section, .case").forEach(n => { n.classList.add("fx"); fxo.observe(n); });
+  }
+
+  // ---------- Method figure: reveal block by block ----------
+  const reveal = document.getElementById("method-reveal");
+  if ("IntersectionObserver" in window) {
+    reveal.classList.add("reveal");
+    // Start only once the (a)(b)(c) text row is on screen too, so each figure block and its
+    // text appear together where the reader can see both.
+    const ro = new IntersectionObserver(es => {
+      if (es.some(e => e.isIntersecting)) { reveal.classList.add("shown"); ro.disconnect(); }
+    }, { threshold: 0.9 });
+    ro.observe(reveal.querySelector(".stages"));
+  }
+</script>
+</body>
+</html>

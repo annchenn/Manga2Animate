@@ -22,6 +22,9 @@
 # ---- ALLOW: MangaEval, the evaluation code shipped with the paper ----
 !/mangaeval/
 
+# ---- ALLOW: project page (static site, deployed to Vercel) ----
+!/project_page/
+
 # ---- ALLOW: ablation study code (results stay untracked, see below) ----
 # !/ablation/
 
@@ -81,6 +84,8 @@ benchmark/vistorybench/note
 *.pth
 *.pt
 *.bin
+# ...except the result videos the project page shows
+!/project_page/static/videos/**/*.mp4
 
 # run_bench.sh keeps a .bak of every reference image it converts to jpg
 *.bak
