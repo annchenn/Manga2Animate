@@ -217,6 +217,16 @@
   .fx.in { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .fx { opacity: 1; transform: none; transition: none; } }
 
+  /* ---------- Citation ---------- */
+  .bib { position: relative; }
+  .bib pre {
+    margin: 0; padding: 20px 22px; border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--ink);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: 0.92rem; line-height: 1.6;
+    overflow-x: auto;
+  }
+  .bib .ghost { position: absolute; top: 10px; right: 10px; background: var(--paper); }
+
   /* ---------- Footer ---------- */
   footer { margin-top: 88px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 0.95rem; color: var(--muted); }
   footer p { margin: 0 0 0.8em; }
@@ -306,6 +316,20 @@
   <section id="more-cases">
     <div class="sec-head"><h2>More Cases</h2></div>
     <div class="cases" id="cases"></div>
+  </section>
+
+  <section id="citation">
+    <div class="sec-head"><h2>Citation</h2></div>
+    <div class="bib">
+      <!-- TODO: add the arXiv number to journal once the paper is on arXiv -->
+<pre id="bibtex">@article{zhang2026manga2animate,
+  title   = {Manga2Animate: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning},
+  author  = {Zhang, Sheng-Wei and Chen, Hsi-An and Liou, Yan-Ting and Chen, Chih-Hsuan and Tseng, Shih-Chen and Liu, Yu-Lun},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+      <button class="ghost" type="button" id="copy-bib">Copy</button>
+    </div>
   </section>
 
   <footer>
@@ -443,6 +467,14 @@
     ]));
   });
   watch(cases);
+
+  // ---------- Copy BibTeX ----------
+  const copyBtn = document.getElementById("copy-bib"), bib = document.getElementById("bibtex");
+  copyBtn.addEventListener("click", () => {
+    const done = () => { copyBtn.textContent = "Copied"; setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500); };
+    const selectText = () => { const r = document.createRange(); r.selectNodeContents(bib); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+    if (navigator.clipboard) navigator.clipboard.writeText(bib.textContent).then(done, selectText); else selectText();
+  });
 
   // ---------- Sections float in as they scroll into view ----------
   if ("IntersectionObserver" in window) {
