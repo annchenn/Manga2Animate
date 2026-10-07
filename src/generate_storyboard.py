@@ -30,6 +30,23 @@ def iter_dir(iteration: int) -> Path:
     return RESULTS_DIR / f"iter{iteration}"
 
 
+def existing_storyboard(iteration: int, sb_index: int) -> Path | None:
+    """The already-saved storyboard_<index>.* for this iter, if one exists and is
+    non-empty.
+
+    Lets a resumed run skip the storyboards it already produced and only fill the
+    missing ones, instead of regenerating (and re-spending quota on) all
+    NUM_STORYBOARDS from scratch. The glob + non-empty check matches how run_all's
+    storyboards_done() decides a storyboard is present. The N candidates are
+    independent whole-grid images that evaluate_storyboards compares afterwards, so
+    filling a single missing one is safe."""
+    sb_dir = iter_dir(iteration) / "storyboard"
+    for p in sorted(sb_dir.glob(f"storyboard_{sb_index}.*")):
+        if p.is_file() and p.stat().st_size > 0:
+            return p
+    return None
+
+
 def build_storyboard_prompt(best_script: dict) -> str:
     template = PROMPT_FILE.read_text(encoding="utf-8")
     template = template.replace(
@@ -103,6 +120,10 @@ def main(iteration: int = 0):
         return
 
     for i in range(NUM_STORYBOARDS):
+        existing = existing_storyboard(iteration, i)
+        if existing is not None:
+            success(f"Storyboard {i + 1}/{NUM_STORYBOARDS} already exists ({existing.name}) — skipping")
+            continue
         step(f"Storyboard {i + 1}/{NUM_STORYBOARDS}")
         generate_one(best_script, iteration, i)
 
