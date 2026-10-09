@@ -523,17 +523,20 @@
   /* ---------- Viewer dialog ---------- */
   dialog {
     border: var(--frame); border-radius: 8px; padding: 0;
-    max-width: min(1200px, calc(100vw - 32px)); width: 100%;
+    max-width: min(1200px, calc(100vw - 32px)); width: fit-content;
     max-height: calc(100vh - 32px); background: var(--card); color: var(--ink);
     box-shadow: var(--pop);
   }
   dialog::backdrop { background: rgba(28, 33, 48, 0.6); }
   .dlg-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 2px solid var(--rule); }
   .dlg-bar h3 { margin: 0; font-size: 1.05rem; }
-  .dlg-body { padding: 16px; overflow: auto; max-height: calc(100vh - 100px); }
-  .dlg-pages { display: flex; gap: 12px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
-  .dlg-pages img { max-height: calc(100vh - 140px); width: auto; border: 2px solid var(--ink); }
-  .dlg-img { max-width: 100%; margin: 0 auto; }
+  .dlg-body { padding: 16px; overflow: auto; max-height: calc(100vh - 100px); overscroll-behavior: contain; }
+  .dlg-pages { display: flex; gap: 14px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .dlg-pages img, .dlg-img { width: var(--pw, 340px); max-width: 100%; height: auto; border: 2px solid var(--ink); }
+  html.modal-open { overflow: hidden; }
+  .dlg-page { position: relative; margin: 0; }
+  .dlg-page figcaption { position: absolute; top: -9px; left: -9px; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700; display: grid; place-items: center; box-shadow: 2px 2px 0 var(--blue); }
+  .dlg-pages { padding: 8px 0 0 8px; }
 </style>
 </head>
 <body>
@@ -887,7 +890,12 @@
   const dlg = document.getElementById("viewer"), dlgBody = document.getElementById("viewer-body"), dlgTitle = document.getElementById("viewer-title");
   function openPages(title, pages) {
     dlgTitle.textContent = title;
-    dlgBody.replaceChildren(el("div", { class: "dlg-pages" }, pages.map((p, i) => el("img", { src: IMG + p, alt: `Source manga page ${i + 1}` }))));
+    // number the pages in reading order when there is more than one
+    const pw = pages.length === 1 ? 600 : pages.length === 2 ? 460 : 340;
+    dlgBody.replaceChildren(el("div", { class: "dlg-pages", style: `--pw:${pw}px` }, pages.map((p, i) => el("figure", { class: "dlg-page" }, [
+      el("img", { src: IMG + p, alt: `Source manga page ${i + 1}` }),
+      pages.length > 1 ? el("figcaption", { text: String(i + 1), "aria-hidden": "true" }) : null,
+    ]))));
     dlg.showModal();
   }
   function openImage(src, alt) {
@@ -895,6 +903,8 @@
     dlgBody.replaceChildren(el("img", { class: "dlg-img", src, alt: alt || "" }));
     dlg.showModal();
   }
+  // lock the page behind the dialog so scrolling inside it never scrolls the page
+  new MutationObserver(() => document.documentElement.classList.toggle("modal-open", dlg.open)).observe(dlg, { attributes: true, attributeFilter: ["open"] });
   dlg.addEventListener("close", () => dlgBody.replaceChildren());
   document.getElementById("viewer-close").addEventListener("click", () => dlg.close());
   dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
@@ -911,25 +921,19 @@
   function layoutDeck() {
     const imgs = [...tDeck.querySelectorAll("img")];
     if (!imgs.length || imgs.some(i => !i.naturalWidth)) return;
-    const W = tDeck.clientWidth, H = tDeck.clientHeight, gap = 10;
+    const m = 8, W = tDeck.clientWidth - 2 * m, H = tDeck.clientHeight - 2 * m, gap = 10, n = imgs.length;
     const ratios = imgs.map(i => i.naturalWidth / i.naturalHeight);
-    let h = Math.min(H - 8, ...ratios.map(r => (W - 8) / r));
-    let widths = ratios.map(r => r * h);
-    const total = widths.reduce((a, b) => a + b, 0) + gap * (imgs.length - 1);
-    let x0 = 0, step = [];
-    if (total <= W) { x0 = (W - total) / 2; widths.forEach((w, i) => step.push(i ? widths[i - 1] + gap : 0)); }
-    else {
-      const over = (widths.reduce((a, b) => a + b, 0) - W) / Math.max(1, imgs.length - 1);
-      widths.forEach((w, i) => step.push(i ? widths[i - 1] - over : 0));
-    }
-    let x = x0;
+    const h = Math.min(H, ...ratios.map(r => W / r));
+    const widths = ratios.map(r => r * h), total = widths.reduce((a, b) => a + b, 0) + gap * (n - 1), fits = total <= W;
+    let x = m + (fits ? (W - total) / 2 : 0);
     imgs.forEach((img, i) => {
-      x += step[i];
+      // side by side when they fit; otherwise fanned out, each page's left edge at i/(n-1) of its free room
+      const left = fits ? x : m + (W - widths[i]) * (n > 1 ? i / (n - 1) : 0);
+      if (fits) x += widths[i] + gap;
       img.style.width = widths[i] + "px";
-      img.style.left = x + "px";
-      img.style.zIndex = String(imgs.length - i);  // page 1 on top
-      const tilt = imgs.length > 1 && total > W ? (i % 2 ? 1.6 : -1.6) : 0;
-      img.style.transform = `translateY(-50%) rotate(${tilt}deg)`;
+      img.style.left = left + "px";
+      img.style.zIndex = String(n - i);  // page 1 on top
+      img.style.transform = `translateY(-50%) rotate(${!fits && n > 1 ? (i % 2 ? 1.6 : -1.6) : 0}deg)`;
     });
   }
   new ResizeObserver(layoutDeck).observe(tDeck);
@@ -1093,8 +1097,9 @@
       ]));
     const restart = el("button", { class: "ghost", type: "button", text: "Restart all four" });
     const thumbs = el("div", { class: `pages n${c.pages.length}` }, c.pages.map((p, i) =>
-      el("button", { class: "page-thumb", type: "button", "data-zoom": IMG + p },
+      el("button", { class: "page-thumb", type: "button", "aria-label": `Open the input manga of scene ${idx + 1}` },
         el("img", { src: IMG + p, alt: `Scene ${idx + 1}, source page ${i + 1}` }))));
+    thumbs.addEventListener("click", e => { if (e.target.closest(".page-thumb")) openPages(`Scene ${idx + 1}: input manga`, c.pages); });
     view.replaceChildren(el("div", { class: "scene-layout", role: "tabpanel" }, [
       el("div", { class: "source" }, thumbs),
       el("div", {}, [el("div", { class: "scene-tools" }, restart), el("div", { class: "vgrid" }, vids)]),
