@@ -10,7 +10,6 @@
 # ---- ALLOW: source & prompts ----
 !/src/
 !/prompts/
-!/few-shot_example/
 
 # ---- ALLOW: paper figure assets ----
 !/figures/
@@ -47,31 +46,15 @@ __pycache__/
 /ablation/*/*/
 !/ablation/*/prompts/
 
-# benchmark
-# vistorybench (vendored, upstream ViStoryBench/vistorybench @ b44ec91)
-# /benchmark must be un-ignored first: git never descends into a directory
-# excluded by `/*`, so the `!` rule below cannot match without this line.
-!/benchmark/
-!/benchmark/vistorybench/
+# benchmark/ (VBench, VBench++, aesthetic, vistorybench) and few-shot_example/
+# stay local only: the release ships MangaEval (mangaeval/) instead.
 
-# vistorybench's own .gitignore blanket-excludes data/* (pretrain weights ~9G,
-# generated outputs, bench_results); dataset/ is re-included there instead --
-# a negation here can't win, since that nested .gitignore is read after this one.
-
-# these are results we regenerate locally, not source data -- keep ignored
-/benchmark/vistorybench/data/bench_results/ours/
-benchmark/vistorybench/data/outputs/ours/
-benchmark/vistorybench/note
-# build_evaluation_sheet.py's output; regenerate with utils/build_evaluation_sheet.py
-/benchmark/vistorybench/evaluation_tsv/
-/benchmark/vistorybench/utils/build_evaluation_sheet.py
-# upstream demo media (30M: 20M mp4 + 5M teasers), not needed to run the bench
-/benchmark/vistorybench/assets/
-
-# AdaFace is its own git repo (upstream submodule, 30M+ incl. a 17M gif).
-# Leave it out or `git add` turns it into a broken gitlink; clone it with:
-#   git -C benchmark/vistorybench submodule update --init
-/benchmark/vistorybench/vistorybench/bench/content/AdaFace/
+# release = Manga2Animate.zip (see packlist.txt); keep these local only
+/src/crop_video_frames.py
+/assets/teaser.png
+/assets/icon.png
+/assets/icon2.png
+/assets/icon_original.png
 
 # never commit real secrets or media
 .env
@@ -93,5 +76,3 @@ benchmark/vistorybench/note
 # NFS silly-rename leftovers, from deleting a file another process still has open
 .nfs*
 
-# scratch scripts for the PA/IA backfill (not part of the pipeline)
-benchmark/vistorybench/tmp/
