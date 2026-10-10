@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Manga2Animate</title>
 <meta name="description" content="Manga2Animate: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning.">
-<link rel="icon" href="static/logo/logo_sq2_light.png">
+<link rel="icon" href="static/logo/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
   /* Visual language: an animation production sheet. Structure is drawn in non-photo blue (the
      animator's construction pencil), reviewer marks in red pencil, and panels get a heavy ink frame.
@@ -50,12 +50,16 @@
     line-height: 1.75;
     padding-inline: max(16px, 3vw);
     padding-block: 0 40px;
+    position: relative;
   }
   .wrap { max-width: 1180px; margin: 0 auto; }
   /* Generated clips loop faintly behind the page, tiled like panels on a manga page. */
-  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-  .bg video, .bg img { width: 100%; height: 100%; object-fit: cover; opacity: .17; filter: saturate(.9); }
-  .bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(246, 248, 251, .25), rgba(246, 248, 251, .55) 60%, rgba(246, 248, 251, .4)); }
+  .bg {
+    position: absolute; inset: 0 0 auto 0; height: min(1000px, 100vh + 120px); z-index: -1; overflow: hidden; pointer-events: none;
+    -webkit-mask-image: linear-gradient(#000 45%, transparent); mask-image: linear-gradient(#000 45%, transparent);
+  }
+  .bg video, .bg img { width: 100%; height: 100%; object-fit: cover; opacity: .2; filter: saturate(.85); }
+  .bg::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(246, 248, 251, .7), rgba(246, 248, 251, .15) 70%); }
   img, video { max-width: 100%; display: block; }
   a { color: var(--blue-deep); }
   button { font: inherit; color: inherit; }
@@ -63,7 +67,7 @@
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* ---------- Hero ---------- */
-  .hero { text-align: center; padding-block: 56px 34px; }
+  .hero { text-align: center; padding-block: 78px 34px; }
   .hero h1 {
     display: inline-flex; align-items: center; justify-content: center; gap: 0.22em; flex-wrap: wrap;
     font-family: var(--font-display); font-weight: 400;
@@ -71,7 +75,22 @@
     margin: 0 0 16px;
   }
   .hero h1 .logo { height: 1.05em; width: auto; }
-  .hero h1 .two { color: var(--blue); -webkit-text-stroke: 0; }
+  .hero h1 .two { color: var(--blue); }
+  .hero h1 .title-word { position: relative; display: inline-block; isolation: isolate; text-shadow: 3px 3px 0 var(--blue-soft), 5px 5px 0 rgba(91, 143, 214, .35); }
+  /* Characters from our generated clips pop out from behind the title, one at a time. */
+  .peekers { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+  .peek { position: absolute; top: -.62em; width: .9em; height: .9em; transform-origin: 50% 100%; opacity: 0; transform: translateY(40%) scale(.3) rotate(var(--r)); }
+  .peek img { width: 100%; height: 100%; object-fit: cover; border: 3px solid var(--ink); border-radius: 12px; background: #fff; box-shadow: 3px 3px 0 var(--blue); }
+  .peek::after { content: "!"; position: absolute; top: -.32em; right: -.3em; width: .42em; height: .42em; display: grid; place-items: center; font-size: .5em; line-height: 1; color: #fff; background: var(--red); border: 2px solid var(--ink); border-radius: 50%; }
+  .peek.show { animation: peek 2.4s cubic-bezier(.3, 1.5, .5, 1) both; }
+  @keyframes peek {
+    0% { opacity: 0; transform: translateY(40%) scale(.3) rotate(var(--r)); }
+    18% { opacity: 1; transform: translateY(0) scale(1) rotate(var(--r)); }
+    26% { transform: translateY(0) scale(1) rotate(calc(var(--r) * -1)); }
+    34%, 78% { opacity: 1; transform: translateY(0) scale(1) rotate(var(--r)); }
+    100% { opacity: 0; transform: translateY(40%) scale(.3) rotate(var(--r)); }
+  }
+  @media (prefers-reduced-motion: reduce) { .peekers { display: none; } }
   .hero .subtitle {
     font-size: clamp(1.1rem, 2.2vw, 1.42rem); font-weight: 700; line-height: 1.45;
     margin: 0 auto 22px; max-width: 34em; text-wrap: balance;
@@ -98,6 +117,7 @@
 
   /* ---------- Teaser: one case at a time, manga in, animation out ---------- */
   .teaser { margin-top: 6px; }
+  .teaser .sheet-body { transition: grid-template-columns .3s ease; }
   .sheet {
     border: var(--frame); border-radius: 8px; background: var(--card);
     box-shadow: var(--pop);
@@ -138,9 +158,10 @@
   .screen { position: relative; border: 2px solid var(--ink); background: #11141b; aspect-ratio: 16 / 9; }
   .screen video { width: 100%; height: 100%; object-fit: contain; transition: opacity .35s ease; }
   .screen video.swap { opacity: 0; }
-  .reel { display: flex; gap: 10px; margin: 18px 0 0; overflow-x: auto; padding: 4px 4px 8px; scrollbar-width: thin; }
+  .reel { display: flex; gap: 12px; margin: 20px 0 0; overflow-x: auto; padding: 4px 8px 8px; scrollbar-width: thin; }
+  .reel > :first-child { margin-left: auto; } .reel > :last-child { margin-right: auto; }
   .reel button {
-    flex: none; width: 112px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid var(--rule); border-radius: 4px;
+    flex: none; width: 136px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid var(--rule); border-radius: 4px;
     background: #11141b center / cover no-repeat; cursor: pointer; opacity: .62; position: relative;
     transition: opacity .2s ease, border-color .2s ease, transform .2s ease;
   }
@@ -149,23 +170,27 @@
   .reel button[aria-current="true"] { opacity: 1; border-color: var(--ink); box-shadow: 3px 3px 0 var(--blue); transform: translateY(-2px); }
   @media (max-width: 820px) {
     .sheet-body { grid-template-columns: 1fr; gap: 6px; padding: 14px; }
-    .deck { min-height: 230px; }
+    .deck { flex: none; min-height: 0; aspect-ratio: var(--deck-ar, 1.2); max-height: 440px; }
     .flow-arrow svg { transform: rotate(90deg); width: 30px; height: 30px; }
   }
 
   /* ---------- Sections ---------- */
-  section { padding-block: 84px 0; }
-  .sec-head { margin: 0 0 18px; display: flex; align-items: center; gap: 14px; }
+  section { padding-block: 92px 0; }
+  @media (max-width: 720px) { section { padding-block: 64px 0; } }
+  .sec-head { margin: 0 0 20px; display: flex; align-items: center; gap: 14px; }
+  .sec-head .kick { flex: none; font-family: var(--font-display); font-size: .95rem; line-height: 1; color: #fff; background: var(--blue-deep); border-radius: 6px; padding: 6px 8px 5px; box-shadow: 3px 3px 0 var(--ink); }
   .sec-head h2 {
     font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em;
     font-size: clamp(1.45rem, 2.8vw, 1.95rem); line-height: 1.15; margin: 0;
   }
-  .sec-head::after { content: ""; flex: 1; height: 3px; background: var(--ink); border-radius: 2px; }
-  h3.sub { font-size: 1.2rem; font-weight: 700; margin: 46px 0 6px; }
+  .sec-head::after { content: ""; flex: 1; height: 2px; background: repeating-linear-gradient(90deg, var(--ink) 0 10px, transparent 10px 16px); opacity: .5; }
+  h3.sub { font-size: 1.25rem; font-weight: 700; margin: 56px 0 6px; display: flex; align-items: center; gap: 10px; }
+  h3.sub::before { content: ""; width: 6px; height: 1.1em; border-radius: 3px; background: var(--blue); }
   .prose p { margin: 0 0 1em; }
-  #abstract .prose { max-width: none; }
+  #abstract .prose { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; box-shadow: 5px 5px 0 var(--rule); padding: 22px 28px 8px; }
   #abstract .prose p { text-align: justify; hyphens: auto; }
-  .lead { margin: 0 0 20px; }
+  @media (max-width: 720px) { #abstract .prose { padding: 16px 16px 4px; } #abstract .prose p { text-align: left; } }
+  .lead { margin: 0 0 22px; max-width: 58em; }
 
   /* ---------- Shared bits for the two method animations ---------- */
   .player { border: var(--frame); border-radius: 8px; background: var(--card); box-shadow: var(--pop); overflow: hidden; }
@@ -196,7 +221,9 @@
   @media (max-width: 600px) {
     .p-ctrl { gap: 6px; padding: 0 8px; }
     .p-ctrl button { width: 30px; height: 30px; }
-    .p-tab { padding: 8px 10px 10px; }
+    .p-tab { padding: 10px 12px 12px; }
+    .p-tab small { display: none; }
+    .p-stage { padding: 12px; }
   }
   .p-ctrl .i-pause { display: none; }
   .player.auto .p-ctrl .i-pause { display: block; }
@@ -218,6 +245,7 @@
   [data-layer].done .a { opacity: 1; }
   @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
   [data-layer].live .a.pop { animation-name: popin; }
+  @keyframes popin { 0% { opacity: 0; transform: scale(.6); } 70% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
   @keyframes popin { 0% { opacity: 0; transform: scale(.6); } 70% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
   [data-layer].live .a.wipe { animation-name: wipe; animation-duration: 1.1s; animation-timing-function: ease-in-out; }
   @keyframes wipe { from { opacity: 1; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
@@ -249,7 +277,8 @@
   .arr.v { width: 3px; height: 26px; min-width: 0; transform-origin: top; justify-self: center; }
   .arr.v::after { right: auto; top: auto; bottom: -2px; left: 50%; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 10px solid var(--blue); border-bottom: 0; transform: translateX(-50%); }
   .tag { display: inline-block; font-size: .88rem; font-weight: 700; padding: 0 9px; border-radius: 999px; background: var(--paper); border: 1.5px solid var(--ink); }
-  [data-layer].live .stamp.a { animation-name: stampin; animation-duration: .45s; }
+  [data-layer].live .stamp.a { animation-name: fadein; animation-duration: .5s; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
   @keyframes stampin { from { opacity: 0; transform: scale(1.8) rotate(-8deg); } to { opacity: 1; transform: rotate(-8deg); } }
   .stamp {
     position: absolute; z-index: 2; font-family: var(--font-display); font-size: 1rem; color: var(--red);
@@ -262,43 +291,19 @@
   .quote cite { display: block; font-style: normal; font-weight: 700; font-size: .88rem; color: var(--muted); margin-bottom: 2px; }
   .quote.blue { border-left-color: var(--blue); }
 
-  /* layer 0: overview */
-  .ov { display: grid; grid-template-columns: minmax(0, .62fr) 34px minmax(0, 1fr) 34px minmax(0, 1fr) 34px minmax(0, 1.1fr); align-items: center; gap: 0 4px; height: 100%; }
-  .ov-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; border: 0; background: none; padding: 0; cursor: pointer; text-align: center; }
-  .ov-col:first-child { cursor: default; }
-  .ov-col .chip { font-weight: 700; font-size: 1rem; line-height: 1.25; padding: 8px 12px; border-radius: 10px; border: 2px dashed var(--ink); }
-  .ov-col:hover .chip { border-style: solid; }
-  .chip.sa { background: var(--sa); } .chip.sb { background: var(--sb); } .chip.sc { background: var(--sc); }
-  .ov-cap { font-size: .95rem; color: var(--muted); margin: 0; line-height: 1.35; }
-  .ov-page { width: 100%; max-width: 150px; }
-  .mini-panels { display: flex; gap: 3px; height: 70px; justify-content: center; }
-  .mini-panels img { height: 100%; width: auto; border: 1.5px solid var(--ink); }
-  .mini-docs { display: flex; gap: 6px; justify-content: center; }
-  .doc { width: 54px; height: 64px; border: 1.5px solid var(--ink); border-radius: 4px; background: repeating-linear-gradient(transparent 0 9px, var(--rule) 9px 11px) 6px 10px / calc(100% - 12px) calc(100% - 16px) no-repeat, #fff; font-size: .6rem; font-weight: 700; line-height: 1.1; padding: 2px; text-align: center; }
-  .ov-video { width: 100%; border: 2px solid var(--ink); background: #11141b; aspect-ratio: 16 / 9; object-fit: cover; }
-  .ov-sb { width: 100%; max-width: 230px; }
+  /* Pipeline stages: one SVG per step, drawn in its own coordinates. Entrances use the shared [data-layer] .a rules. */
+  .pipe .p-stage { overflow-x: auto; }
+  .pfig { display: block; width: 100%; min-width: 760px; height: auto; font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .pfig .sans { font-family: var(--font-body); }
+  .pipe [data-layer="0"] .pfig { max-width: 940px; min-width: 0; margin: 0 auto; }
+  .pfig .a { transform-box: fill-box; transform-origin: center; }
+  [data-layer].live .pfig .ln { stroke-dasharray: 1; stroke-dashoffset: 1; animation: dash .5s ease var(--d) forwards; }
+  @keyframes dash { to { stroke-dashoffset: 0; } }
+  .pfig [data-go] { cursor: pointer; }
+  .pfig [data-go]:hover > rect:first-child, .pfig [data-go]:focus-visible > rect:first-child { stroke: var(--blue); stroke-width: 4; }
+  .pfig [data-go]:focus { outline: none; }
+  @media (max-width: 600px) { .pfig { min-width: 0; } }
 
-  /* layer 1: pre-processing */
-  .pa { display: grid; grid-template-columns: minmax(0, 1.05fr) 38px minmax(0, .8fr) 38px minmax(0, 1.7fr); gap: 18px 6px; align-items: center; }
-  .pa .in-ref { width: 100%; max-width: 170px; justify-self: center; }
-  .pa .pages3 { position: relative; display: flex; gap: 6px; justify-content: center; }
-  .pa .pages3 img { width: 31%; border: 1.5px solid var(--ink); }
-  .scan { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-  .scan::before { content: ""; position: absolute; left: 0; right: 0; height: 22%; background: linear-gradient(transparent, rgba(91, 143, 214, .45), transparent); top: -25%; }
-  [data-layer].live .scan::before { animation: scan 1.4s ease-in-out 1s 2 both; }
-  @keyframes scan { from { top: -25%; } to { top: 105%; } }
-  .pa .node { justify-self: center; }
-  .card { border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; padding: 10px 14px; font-size: .96rem; line-height: 1.55; }
-  .card h4 { margin: 0 0 4px; font-size: .88rem; color: var(--muted); }
-  .panels6 { display: flex; gap: 5px; align-items: flex-end; height: 104px; margin-bottom: 10px; }
-  .panels6 figure { margin: 0; height: 100%; position: relative; flex: none; }
-  .panels6 img { height: 100%; width: auto; border: 1.5px solid var(--ink); }
-  .panels6 figcaption { position: absolute; top: -9px; left: -7px; width: 21px; height: 21px; border-radius: 50%; background: var(--ink); color: #fff; font-size: .8rem; font-weight: 700; display: grid; place-items: center; }
-  .transcript { font-family: var(--font-body); }
-  .transcript span { display: block; }
-  .transcript i { font-style: normal; color: var(--blue-deep); font-weight: 700; margin-right: 6px; }
-
-  /* layer 2: clip-wise script selection (pipeline view) and the script-selection player */
   .sgrid { display: grid; grid-template-columns: 74px repeat(7, minmax(0, 1fr)); gap: 6px; align-items: center; }
   .sgrid .rl { font-weight: 700; font-size: .95rem; line-height: 1.15; }
   .sgrid .hd { font-size: .88rem; color: var(--muted); text-align: center; font-weight: 700; }
@@ -316,69 +321,51 @@
   @keyframes mark { from { outline-color: transparent; } to { outline-color: var(--ink); } }
   .cell .src { position: absolute; right: 5px; bottom: 1px; font-size: .78rem; font-weight: 700; color: var(--ink); }
   .best-row .cell { border-width: 2px; }
-  .pb { display: grid; grid-template-columns: auto 38px minmax(0, 1fr); gap: 10px 8px; align-items: center; }
-  .pb .best-row { grid-column: 3; }
-  .pb .rev { grid-column: 3; display: flex; align-items: center; gap: 14px; justify-content: center; }
-  .pb .rev .node { flex: none; }
-  .pb .rev .quote { flex: 1; max-width: 560px; }
-
-  /* layer 3: storyboards */
-  .sbx { display: grid; grid-template-columns: auto 38px minmax(0, 1fr); gap: 14px 8px; align-items: center; }
-  .cands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .cand { position: relative; margin: 0; }
-  .cand img { width: 100%; }
-  .cand figcaption { font-size: .95rem; font-weight: 700; margin-top: 4px; }
-  .cand .stamp { top: -10px; right: -6px; }
-  .judge { grid-column: 3; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; }
-  .vs { font-weight: 700; font-size: .95rem; white-space: nowrap; }
-  .vs b { color: var(--red); }
-
-  /* layer 4: feedback */
-  .fb { display: grid; grid-template-columns: minmax(0, 1fr) 38px auto; gap: 12px 8px; align-items: center; }
-  .fb .notes { display: grid; gap: 10px; }
-  .fb .ba { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr); gap: 8px; align-items: center; }
-  .fb .ba figure { margin: 0; position: relative; }
-  .fb .ba figcaption { font-size: .95rem; font-weight: 700; margin-top: 4px; }
-  .fb .ring { left: 0%; top: 0%; width: 34%; height: 50%; }
-  .round { display: grid; justify-items: center; gap: 6px; }
-  .round .tag { background: var(--sb); }
-
-  /* layer 5: video */
-  .vg { display: grid; grid-template-columns: minmax(0, .9fr) 34px auto 34px minmax(0, .8fr) 34px auto 34px minmax(0, 1.5fr); gap: 6px; align-items: center; }
-  .vg .ins { display: grid; gap: 8px; }
-  .vg .ins .sgrid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
-  .vg .ins .cell { height: 22px; background-size: calc(100% - 8px) 12px; background-position: 4px 5px; }
-  .vg .vc { display: grid; gap: 10px; }
-  .vg .vc figure { margin: 0; position: relative; }
-  .vg video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #11141b; border: 2px solid var(--ink); }
-  .vg figcaption { font-size: .92rem; font-weight: 700; }
-  .vg .final { position: relative; margin: 0; }
-  .vg .final .stamp { top: -12px; right: -8px; }
-  .vg .node { flex-direction: column; text-align: center; padding: 8px; }
-
-  @media (max-width: 900px) {
-    .p-stage { padding: 16px; }
-    .ov, .pa, .pb, .sbx, .fb, .vg { grid-template-columns: minmax(0, 1fr); justify-items: center; }
-    .ov .arr, .pa .arr, .pb > .arr, .sbx > .arr, .fb > .arr, .vg > .arr { width: 3px; height: 22px; min-width: 0; transform-origin: top; }
-    .ov .arr::after, .pa .arr::after, .pb > .arr::after, .sbx > .arr::after, .fb > .arr::after, .vg > .arr::after { right: auto; top: auto; bottom: -2px; left: 50%; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 10px solid var(--blue); border-bottom: 0; transform: translateX(-50%); }
-    .pb .rev, .pb .best-row, .judge { grid-column: 1; }
-    .pb .rev { flex-wrap: wrap; }
-    .judge { grid-template-columns: 1fr; justify-items: center; }
-    .panels6 { flex-wrap: wrap; height: auto; }
-    .panels6 figure { height: 76px; }
-    .pb > *, .sbx > *, .fb > *, .vg > *, .pa > * { width: 100%; }
-    .pa .node, .pb .node, .sbx .node, .fb .round, .vg .node { width: auto; }
-    .vg .vc { grid-template-columns: 1fr 1fr; }
-    .ov-col { width: 100%; }
-    .ov-page { max-width: 110px; }
-  }
-
   /* ---------- Script selection player ---------- */
-  /* Top: candidate grid (left) and the manga panel under review (right). Below: the three clip-6 candidates. */
-  .ss-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 20px 28px; align-items: center; }
-  .ss-review { display: contents; }
-  .ss .sgrid { grid-template-columns: 96px repeat(7, minmax(0, 1fr)); gap: 8px; }
-  .ss .cell { height: 52px; }
+  .ss .p-stage { position: relative; }
+  /* Step 2: every column but clip 6 fades, the clip-6 column slides left (--c6shift, measured in JS),
+     and the bubble fills the freed columns. Step 3 slides it back. Nothing changes height. */
+  .ss-layout { display: grid; width: 100%; max-width: 980px; margin: 0 auto; }
+  /* Sequenced so nothing overlaps while moving.
+     Into step 2: other columns fade out (0-.3s), clip 6 slides left (.25-1s), then the bubble appears (1s).
+     Out of step 2: bubble fades (0-.25s), clip 6 slides back (.2-.95s), then the other columns fade back in (.9s). */
+  /* translate and filter are used because the cells' entrance animations own transform and opacity */
+  #ss-grid > * { transition: filter .4s ease .9s, opacity .4s ease .9s, translate .75s cubic-bezier(.4, 0, .2, 1) .2s; }
+  .ss[data-step="1"] #ss-grid > * { transition: filter .3s ease 0s, opacity .3s ease 0s, translate .75s cubic-bezier(.4, 0, .2, 1) .25s; }
+  /* back to step 1 (prev button or the loop restarting): reset at once, no delays */
+  .ss[data-step="0"] #ss-grid > * { transition: filter .25s ease 0s, opacity .2s ease 0s, translate .5s cubic-bezier(.4, 0, .2, 1) 0s; }
+  .ss[data-step="1"] #ss-grid > :not(.col6):not(.c6-ring):not(.ss-bubble) { filter: opacity(0); }
+  .ss[data-step="1"] #ss-grid > .col6, .ss[data-step="1"] #ss-grid > .c6-ring { translate: var(--c6shift, 0px) 0; }
+  .ss[data-step="1"] [data-layer="2"] { filter: opacity(0); }
+  /* the clip-6 frame is part of the explanation, so it appears from step 2 on */
+  .ss:not([data-step="1"]):not([data-step="2"]) #ss-grid > .c6-ring { opacity: 0; }
+
+  /* Step 2 bubble: anchored at the header row of the freed columns; drawn over the grid, never resizing it.
+     .ss-left reserves its height (JS), so every step has the same height. */
+  .ss-left { position: relative; display: flex; flex-direction: column; justify-content: center; }
+  .ss-bubble { grid-column: 2 / -1; grid-row: 1 / 2; align-self: start; position: relative; height: 0; }
+  .ss:not([data-step="1"]) .ss-bubble { opacity: 0; visibility: hidden; transition: opacity .25s ease 0s, visibility 0s .25s; }
+  .bub { position: absolute; top: var(--bub-top, 0px); left: var(--bub-left, 26px); right: 0; padding: 12px 14px 14px; background: #fff; border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--blue-soft);
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .bub::before { content: ""; position: absolute; left: -10px; top: var(--tail-y, 130px); width: 16px; height: 16px; background: #fff;
+    border-left: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateY(-50%) rotate(45deg); }
+  .bub-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: .85rem; color: var(--muted); }
+  .bub-top img { height: 58px; width: auto; border: 2px solid var(--ink); }
+  .bcard { position: relative; border-radius: 9px; padding: 26px 11px 28px; font-size: .74rem; line-height: 1.45; }
+  .bcard p { margin: 0; }
+  .bcard.k1 { background: #fae3d6; } .bcard.k2 { background: #fdf2c7; } .bcard.k3 { background: #dfe9f5; }
+  .btab { position: absolute; left: 10px; top: 0; font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 700; font-size: .74rem; padding: 2px 9px; border-radius: 0 0 6px 6px; }
+  .bcard.k1 .btab { background: #f7c7aa; } .bcard.k2 .btab { background: #fbe08f; } .bcard.k3 .btab { background: #b9d0ec; }
+  .bcard .verdict { position: absolute; right: 10px; bottom: 6px; font-style: italic; font-size: .82rem; }
+  .bcard .x { background-image: linear-gradient(var(--red), var(--red)); background-repeat: no-repeat; background-size: 0% 2px; background-position: 0 92%; }
+  .ss-bubble.live .bcard .x { animation: underline .6s ease var(--d) both; }
+  .ss-bubble.done .bcard .x { background-size: 100% 2px; color: var(--red); }
+  .ss[data-step="1"] #ss-grid > .ss-bubble { transition: opacity .35s ease 1s, visibility 0s 1s; }
+
+  .ss .sgrid { grid-template-columns: 110px repeat(7, minmax(0, 1fr)); gap: 10px; }
+  .ss .sgrid .rl { font-size: 1.02rem; }
+  .ss .sgrid .hd { font-size: .95rem; }
+  .ss .cell { height: 60px; }
   .ss .cell.pick { box-shadow: inset 0 0 0 2px var(--rowk); background: var(--row); }
   .ss .cell.pick::before { content: "best"; position: absolute; inset: 0; display: grid; place-items: center; font-size: .92rem; font-weight: 700; color: var(--ink); background: rgba(255,255,255,.55); border-radius: 5px; }
   .ss .cell:not(.pick) { background: repeating-linear-gradient(transparent 0 7px, rgba(28,33,48,.1) 7px 8px) 6px 9px / calc(100% - 12px) 32px no-repeat, #eef1f5; border-color: #c9d0da; }
@@ -391,8 +378,8 @@
   .p6 { margin: 0; }
   .p6 img { width: 100%; border: 2px solid var(--ink); }
   .p6 figcaption { font-weight: 700; margin-top: 4px; }
-  .clipcards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-  .clipcard { border-radius: 8px; padding: 10px 14px 34px; font-size: .97rem; line-height: 1.55; position: relative; background: var(--row); border: 1.5px solid var(--rowk); }
+  .clipcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .clipcard { border-radius: 8px; padding: 10px 12px 32px; font-size: .86rem; line-height: 1.5; position: relative; background: var(--row); border: 1.5px solid var(--rowk); }
   .clipcard h4 { margin: 0 0 4px; font-size: 1rem; }
   .clipcard p { margin: 0; }
   .clipcard .x { color: var(--ink); background-image: linear-gradient(var(--red), var(--red)); background-repeat: no-repeat; background-size: 0% 2px; background-position: 0 88%; }
@@ -405,9 +392,17 @@
   .choose { grid-column: 1 / -1; margin: 0; font-weight: 700; font-size: 1.02rem; text-align: right; }
   .choose span { background: var(--s2); padding: 3px 10px; border-radius: 4px; }
   @media (max-width: 900px) {
-    .ss-layout { grid-template-columns: 1fr; }
     .clipcards { grid-template-columns: 1fr; }
     .ss .sgrid { grid-template-columns: 62px repeat(7, minmax(0, 1fr)); gap: 4px; }
+    /* phones: the bubble lists verdicts only (the caption explains); full texts need desktop width */
+    .bub { grid-template-columns: 1fr; padding: 8px; gap: 6px; }
+    .bub-top { font-size: .72rem; } .bub-top img { height: 44px; }
+    .bcard { padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; }
+    .bcard p { display: none; }
+    .btab { position: static; border-radius: 5px; font-size: .64rem; white-space: nowrap; padding: 2px 6px; }
+    .bcard { gap: 6px; }
+    .bcard .verdict { position: static; font-size: .7rem; white-space: nowrap; }
+    .ss .sgrid .rl, .ss .sgrid .hd { font-size: .8rem; }
     .ss .cell { height: 40px; }
     .ss .cell.pick::before { font-size: .72rem; }
   }
@@ -421,34 +416,39 @@
   }
   .tab:hover { background: var(--blue-soft); }
   .tab[aria-selected="true"] { background: var(--ink); color: #fff; }
-  .scene-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.6fr); gap: 22px; align-items: center; }
-  .source { min-width: 0; }
-  .pages { display: grid; gap: 10px; justify-items: center; align-items: center; }
-  .scene-layout .pages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .scene-layout .pages.n1 { grid-template-columns: minmax(0, 1fr); }
-  .scene-layout .pages.n3 > :last-child { grid-column: 1 / -1; width: calc(50% - 5px); justify-self: center; }
-  .page-thumb { border: 2px solid var(--ink); overflow: hidden; padding: 0; background: #fff; cursor: zoom-in; display: block; width: 100%; }
-  .page-thumb img { width: 100%; height: auto; }
+  /* Comparison sheet: the manga column is sized in JS (layoutScene) so its pages fill the height of the video grid. */
+  .cmp .sheet-bar .tabs { margin: 0; gap: 6px; }
+  .cmp .tab { padding: 4px 14px; font-size: .95rem; }
+  .scene-layout { display: grid; grid-template-columns: var(--src-w, 30%) minmax(0, 1fr); gap: 18px; padding: 18px; align-items: start;
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 28px 28px; background-position: -1px -1px; }
+  .source { min-width: 0; display: flex; flex-direction: column; }
+  .pages { position: relative; height: var(--src-h, 300px); }
+  .page-thumb { position: absolute; border: 2px solid var(--ink); overflow: hidden; padding: 0; background: #fff; cursor: zoom-in; display: block; box-shadow: 3px 3px 0 rgba(28, 33, 48, .18); transition: transform .15s ease; }
+  .page-thumb:hover { transform: translate(-1px, -2px); box-shadow: 4px 5px 0 var(--blue); }
+  .page-thumb img { width: 100%; height: 100%; object-fit: cover; }
   .vgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; }
-  .vcell { min-width: 0; }
+  .vcell { min-width: 0; position: relative; }
   .vcell .frame { border: 2px solid var(--ink); overflow: hidden; background: #11141b; aspect-ratio: 16 / 9; }
   .vcell .frame video { width: 100%; height: 100%; object-fit: contain; }
-  .vcell .label { margin: 4px 0 0; font-weight: 700; }
-  .vcell.ours .frame { border-color: var(--blue-deep); box-shadow: 5px 5px 0 var(--blue); }
-  .vcell.ours .label { color: var(--blue-deep); font-weight: 700; }
-  .scene-tools { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+  .vcell .label { position: absolute; top: 8px; left: 8px; margin: 0; z-index: 1; pointer-events: none;
+    font-size: .88rem; font-weight: 700; line-height: 1.2; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); border: 1.5px solid var(--ink); }
+  .vcell.ours .frame { border-color: var(--blue-deep); box-shadow: 0 0 0 2px var(--blue-deep), 5px 5px 0 2px var(--blue); }
+  .vcell.ours .label { color: #fff; background: var(--blue-deep); border-color: var(--blue-deep); }
   .ghost {
     font-size: .9rem; font-weight: 700; line-height: 1;
     padding: 8px 14px; border: 2px solid var(--ink); border-radius: 999px;
     background: var(--card); color: var(--ink); cursor: pointer;
   }
   .ghost:hover { background: var(--blue-soft); }
-  @media (max-width: 900px) {
-    .scene-layout { grid-template-columns: 1fr; }
-    .scene-layout .pages, .scene-layout .pages.n1 { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-    .scene-layout .pages.n3 > :last-child { grid-column: auto; width: auto; }
+  @media (max-width: 900px) { .scene-layout { grid-template-columns: minmax(0, 1fr); padding: 14px; } }
+  @media (max-width: 600px) {
+    .vgrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .cmp .sheet-bar { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
+    .cmp .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .cmp .tab { padding: 4px 11px; flex: none; }
+    .cmp .long { display: none; }
   }
-  @media (max-width: 520px) { .vgrid { grid-template-columns: 1fr; } }
 
   /* ---------- Results: user study (grouped bars, same layout and colours as the paper figure) ---------- */
   .us { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
@@ -555,7 +555,7 @@
 <div class="wrap">
 
   <header class="hero">
-    <h1><img class="logo" src="static/logo/logo_sq2_light.png" alt="Manga2Animate logo"><span>Manga<span class="two">2</span>Animate</span></h1>
+    <h1><img class="logo" src="static/logo/logo.png" alt="Manga2Animate logo"><span class="title-word">Manga<span class="two">2</span>Animate<span class="peekers" aria-hidden="true"></span></span></h1>
     <p class="subtitle">An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</p>
     <div class="authors">
       <span><a href="https://github.com/bbbguji" target="_blank" rel="noopener">Sheng-Wei Zhang</a><sup>1*</sup></span>
@@ -600,155 +600,35 @@
   </div>
 
   <section id="abstract">
-    <div class="sec-head"><h2>Abstract</h2></div>
+    <div class="sec-head"><span class="kick" aria-hidden="true">01</span><h2>Abstract</h2></div>
     <div class="prose">
       <p>Adapting existing manga into coherent animation that stays faithful to the source is a valuable yet challenging task. Existing methods either access the manga mainly through text, losing its characters and art style, or feed manga pages directly into video generation models, which misinterpret the manga's structure and produce incorrect storylines. In this paper, we propose <b>Manga2Animate</b>, a multi-agent framework that grounds every stage of generation in the source manga. We decompose the task into two intermediate representations, an animation script and a visual storyboard. Each representation is produced by a creator agent and reviewed against the source panels by a paired reviewer agent. We tailor representation-specific selection and dual-level feedback to progressively refine both before synthesizing the final animation. Extensive experiments and a user study demonstrate that Manga2Animate produces animations more faithful to the source manga and more consistent across shots than state-of-the-art approaches.</p>
     </div>
   </section>
 
   <section id="method">
-    <div class="sec-head"><h2>Method</h2></div>
+    <div class="sec-head"><span class="kick" aria-hidden="true">02</span><h2>Method</h2></div>
     <p class="lead">Following real animation production, Manga2Animate first writes an animation script, then draws a visual storyboard, and only then generates the video. Each step is made by a creator agent and checked against the source manga panels by a reviewer agent. The walkthrough below uses the real intermediate outputs of one case; pick a stage to jump to it.</p>
 
     <div class="player pipe" id="pipe">
       <div class="p-bar" role="tablist" aria-label="Pipeline stages">
-        <button class="p-tab" role="tab" data-go="0">Overview<small>manga to animation</small></button>
+        <button class="p-tab" role="tab" data-go="0">Overview<small>the whole pipeline</small></button>
         <button class="p-tab ta" role="tab" data-go="1">(a) Pre-processing<small>panels, transcript, characters</small></button>
-        <button class="p-tab tb" role="tab" data-go="2">(b) Script<small>clip-wise selection</small></button>
-        <button class="p-tab tb" role="tab" data-go="3">(b) Storyboard<small>whole-image selection</small></button>
-        <button class="p-tab tb" role="tab" data-go="4">(b) Feedback<small>next round</small></button>
-        <button class="p-tab tc" role="tab" data-go="5">(c) Video<small>generate and review</small></button>
+        <button class="p-tab tb" role="tab" data-go="2">(b) Refinement<small>script, storyboard, feedback</small></button>
+        <button class="p-tab tc" role="tab" data-go="3">(c) Video generation<small>clip by clip</small></button>
         <div class="p-ctrl">
           <button type="button" data-prev aria-label="Previous stage"><svg><use href="#i-prev"/></svg></button>
           <button type="button" data-toggle aria-label="Play or pause the walkthrough"><svg class="i-play"><use href="#i-play"/></svg><svg class="i-pause"><use href="#i-pause"/></svg></button>
           <button type="button" data-next aria-label="Next stage"><svg><use href="#i-next"/></svg></button>
         </div>
       </div>
-
+      <!-- The paper's pipeline figure, redrawn as one SVG per stage (generator: fig2.py, kept out of the repo) with the
+           real elf1 example from results/elf1. Icons are crops of the paper figure (static/method/fig/). -->
       <div class="p-stage">
-        <!-- 0 · Overview -->
-        <div data-layer="0" data-cap="Manga2Animate turns manga pages into an animation in three stages. Click a stage to see what happens inside it.">
-          <div class="ov">
-            <div class="ov-col a" style="--d:.1s">
-              <img class="ov-page thumb" src="static/images/goblin_manga_1.jpg" alt="Source manga page">
-              <p class="ov-cap">Manga pages and a character reference</p>
-            </div>
-            <span class="arr a draw" style="--d:.5s"></span>
-            <button class="ov-col a" style="--d:.7s" type="button" data-go="1">
-              <span class="chip sa">(a) Pre-processing</span>
-              <div class="mini-panels"><img src="static/method/goblin_panel1.jpg" alt=""><img src="static/method/goblin_panel3.jpg" alt=""><img src="static/method/goblin_panel4.jpg" alt=""><img src="static/method/goblin_panel6.jpg" alt=""></div>
-              <p class="ov-cap">Ordered panels, transcript, character descriptions</p>
-            </button>
-            <span class="arr a draw" style="--d:1.3s"></span>
-            <button class="ov-col a" style="--d:1.5s" type="button" data-go="2">
-              <span class="chip sb">(b) Script and storyboard refinement</span>
-              <img class="ov-sb thumb" src="static/method/goblin_sb0.jpg" alt="">
-              <p class="ov-cap">Best script and storyboard after two rounds</p>
-            </button>
-            <span class="arr a draw" style="--d:2.1s"></span>
-            <button class="ov-col a" style="--d:2.3s" type="button" data-go="5">
-              <span class="chip sc">(c) Video generation</span>
-              <video class="ov-video" src="static/videos/goblin/ours.mp4" poster="static/videos/goblin/poster.jpg" muted loop playsinline preload="none"></video>
-              <p class="ov-cap">Final animation</p>
-            </button>
-          </div>
-        </div>
-
-        <!-- 1 · Pre-processing -->
-        <div data-layer="1" data-cap="<b>(a) Pre-processing.</b> Magi detects the panels, orders them, and transcribes the text. A Character Description Creator writes identity-defining traits from the reference image, leaving out clothing that may change.">
-          <div class="pa">
-            <img class="in-ref thumb a" style="--d:.1s" src="static/method/goblin_ref.jpg" alt="Character reference image">
-            <span class="arr a draw" style="--d:.5s"></span>
-            <div class="node creator a" style="--d:.7s"><span class="ic"><svg><use href="#i-pen"/></svg></span>Character Description Creator</div>
-            <span class="arr a draw" style="--d:1.2s"></span>
-            <div class="card a" style="--d:1.4s"><h4>Character description</h4>A young adolescent male; short, extremely spiky bright white hair with a longer wispy tuft on his right side; striking golden-yellow eyes with thin black pupils; slim, athletic figure.</div>
-
-            <div class="pages3 a" style="--d:.2s">
-              <img src="static/images/goblin_manga_1.jpg" alt="Manga page 1"><img src="static/images/goblin_manga_2.jpg" alt="Manga page 2"><img src="static/images/goblin_manga_3.jpg" alt="Manga page 3">
-              <span class="scan"></span>
-            </div>
-            <span class="arr a draw" style="--d:.6s"></span>
-            <div class="node tool a" style="--d:.8s"><span class="ic"><svg><use href="#i-grid"/></svg></span>Magi<br>panels + text</div>
-            <span class="arr a draw" style="--d:3.6s"></span>
-            <div>
-              <div class="panels6">
-                <figure class="a pop" style="--d:3.8s"><img src="static/method/goblin_panel1.jpg" alt="Panel 1"><figcaption>1</figcaption></figure>
-                <figure class="a pop" style="--d:4.0s"><img src="static/method/goblin_panel2.jpg" alt="Panel 2"><figcaption>2</figcaption></figure>
-                <figure class="a pop" style="--d:4.2s"><img src="static/method/goblin_panel3.jpg" alt="Panel 3"><figcaption>3</figcaption></figure>
-                <figure class="a pop" style="--d:4.4s"><img src="static/method/goblin_panel4.jpg" alt="Panel 4"><figcaption>4</figcaption></figure>
-                <figure class="a pop" style="--d:4.6s"><img src="static/method/goblin_panel5.jpg" alt="Panel 5"><figcaption>5</figcaption></figure>
-                <figure class="a pop" style="--d:4.8s"><img src="static/method/goblin_panel6.jpg" alt="Panel 6"><figcaption>6</figcaption></figure>
-              </div>
-              <div class="card transcript a" style="--d:5.2s"><h4>Transcript</h4><span><i>&lt;1&gt;</i>Well,</span><span><i>&lt;1&gt;</i>I have time to here...</span><span><i>&lt;5&gt;</i>The 5% of you!!</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2 · Script -->
-        <div data-layer="2" data-cap="<b>(b) Script.</b> The Script Creator writes three candidate scripts. Their errors are local, so the Script Reviewer picks the best entry for each panel instead of the best whole script, then recombines them. Picks shown are the real ones for this case.">
-          <div class="pb">
-            <div class="node creator a" style="--d:.1s"><span class="ic"><svg><use href="#i-pen"/></svg></span>Script<br>Creator</div>
-            <span class="arr a draw" style="--d:.4s"></span>
-            <div class="sgrid" id="pipe-sgrid"></div>
-            <div class="rev"><span class="arr v a drawv" style="--d:3.1s"></span><div class="node reviewer a" style="--d:3.1s"><span class="ic"><svg><use href="#i-eye"/></svg></span>Script Reviewer</div><blockquote class="quote a" style="--d:3.4s"><cite>Clip 6: Script 2 wins 4 of 6 criteria</cite>Script 2 correctly identifies the z-axis depth by stating Character 2 is 'in front of the beam', which is much more precise than saying he is 'across' it.</blockquote></div>
-            <div class="sgrid best-row" id="pipe-best"></div>
-          </div>
-        </div>
-
-        <!-- 3 · Storyboard -->
-        <div data-layer="3" data-cap="<b>(b) Storyboard.</b> The Storyboard Creator draws three candidates from the selected script. Panels share style and lighting, so the Storyboard Reviewer judges whole storyboards against the script and the manga, and keeps the winner.">
-          <div class="sbx">
-            <div class="node creator a" style="--d:.1s"><span class="ic"><svg><use href="#i-pen"/></svg></span>Storyboard<br>Creator</div>
-            <span class="arr a draw" style="--d:.4s"></span>
-            <div class="cands">
-              <figure class="cand"><img class="thumb a wipe" style="--d:.6s" src="static/method/goblin_sb0.jpg" alt="Storyboard candidate A"><figcaption class="a" style="--d:.6s">Candidate A</figcaption><span class="stamp a pop" style="--d:5.4s">BEST</span></figure>
-              <figure class="cand dim" style="--d2:5.2s"><img class="thumb a wipe" style="--d:1.2s" src="static/method/goblin_sb1.jpg" alt="Storyboard candidate B"><figcaption class="a" style="--d:1.2s">Candidate B</figcaption></figure>
-              <figure class="cand dim" style="--d2:5.2s"><img class="thumb a wipe" style="--d:1.8s" src="static/method/goblin_sb2.jpg" alt="Storyboard candidate C"><figcaption class="a" style="--d:1.8s">Candidate C</figcaption></figure>
-            </div>
-            <div class="judge">
-              <div class="node reviewer a" style="--d:3.0s"><span class="ic"><svg><use href="#i-eye"/></svg></span>Storyboard Reviewer</div>
-              <blockquote class="quote a" style="--d:3.5s"><cite>A vs B, 13 : 5 criteria for A</cite>Storyboard B fails to preserve the goblin's identity, particularly in panel 2 where the goblin looks like a frail old creature rather than a hulking monster.</blockquote>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4 · Feedback -->
-        <div data-layer="4" data-cap="<b>(b) Dual-level feedback.</b> Both reviewers write down what is still wrong. The Script Creator gets both notes in the next round and edits only the flagged parts. Here the round-1 storyboard drew a generic goblin; round 2 restores its white hair and bone crown.">
-          <div class="fb">
-            <div class="notes">
-              <blockquote class="quote blue a" style="--d:.1s"><cite>Script Reviewer, clip 1</cite>The script should describe the specific orientation of the sword, noting that the blade points diagonally downwards across Character[2]'s body.</blockquote>
-              <blockquote class="quote a" style="--d:.6s"><cite>Storyboard Reviewer</cite>The goblin must have long white hair and a prominent beige bone structure protruding from its forehead.</blockquote>
-            </div>
-            <span class="arr a draw" style="--d:1.2s"></span>
-            <div class="round a" style="--d:1.4s"><div class="node creator"><span class="ic"><svg><use href="#i-pen"/></svg></span>Script<br>Creator</div><span class="tag">round 2 of 2</span></div>
-            <div class="ba">
-              <figure class="a" style="--d:2.2s"><img class="thumb" src="static/method/goblin_round1.jpg" alt="Best storyboard after round 1"><figcaption>Round 1 best</figcaption><span class="ring a pop" style="--d:3.2s"></span></figure>
-              <span class="arr a draw" style="--d:3.0s"></span>
-              <figure class="a wipe" style="--d:3.4s"><img class="thumb" src="static/method/goblin_sb0.jpg" alt="Best storyboard after round 2"><figcaption>Round 2 best</figcaption><span class="ring a pop" style="--d:4.6s"></span></figure>
-            </div>
-          </div>
-        </div>
-
-        <!-- 5 · Video -->
-        <div data-layer="5" data-cap="<b>(c) Video generation.</b> The best script and storyboard condition the video model. The Video Creator makes two candidates and the Video Reviewer keeps the better one. With first-frame models the same loop runs clip by clip, using each storyboard panel as a first frame.">
-          <div class="vg">
-            <div class="ins a" style="--d:.1s">
-              <div class="sgrid best-row" id="pipe-best2"></div>
-              <img class="thumb" src="static/method/goblin_sb0.jpg" alt="Best storyboard">
-            </div>
-            <span class="arr a draw" style="--d:.5s"></span>
-            <div class="node creator a" style="--d:.7s"><span class="ic"><svg><use href="#i-pen"/></svg></span>Video<br>Creator</div>
-            <span class="arr a draw" style="--d:1.1s"></span>
-            <div class="vc">
-              <figure class="a" style="--d:1.3s"><video src="static/method/goblin_video_cand1.mp4" poster="static/method/goblin_video_cand1.jpg" muted loop playsinline preload="none"></video><figcaption>Candidate 1</figcaption></figure>
-              <figure class="dim" style="--d2:4.4s"><div class="a" style="--d:1.7s"><video src="static/method/goblin_video_cand2.mp4" poster="static/method/goblin_video_cand2.jpg" muted loop playsinline preload="none"></video><figcaption>Candidate 2</figcaption></div></figure>
-            </div>
-            <span class="arr a draw" style="--d:3.0s"></span>
-            <div class="node reviewer a" style="--d:3.2s"><span class="ic"><svg><use href="#i-eye"/></svg></span>Video<br>Reviewer</div>
-            <span class="arr a draw" style="--d:4.4s"></span>
-            <figure class="final a" style="--d:4.6s"><video src="static/videos/goblin/ours.mp4" poster="static/videos/goblin/poster.jpg" muted loop playsinline preload="none"></video><span class="stamp a pop" style="--d:5.2s">BEST</span></figure>
-          </div>
-        </div>
+        <div data-layer="0" data-cap="The full pipeline: manga pages go through (a) pre-processing, (b) script and storyboard refinement, and (c) video generation. Click a stage to open it."><svg class="pfig" viewBox="0 0 1100 506" role="img" aria-label="Pipeline overview"><defs><marker id="ov-111" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#111"/></marker><marker id="ov-c8692b" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#c8692b"/></marker><marker id="ov-2ea043" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#2ea043"/></marker><marker id="ov-3a73c4" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#3a73c4"/></marker><marker id="ov-e02424" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#e02424"/></marker></defs><rect x="3" y="3" width="1094" height="500" rx="24" fill="#fff" stroke="#222" stroke-width="2.4"/><g class="a" style="--d:0.10s"><image href="static/method/elf1/page.jpg?v=7" x="60.0" y="26.0" width="114.0" height="162.0" preserveAspectRatio="xMidYMid slice"/><rect x="60.0" y="26.0" width="114.0" height="162.0" fill="none" stroke="#222" stroke-width="1.5"/></g><g class="a" style="--d:0.10s"><text x="117.0" y="210.0" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" text-anchor="middle" font-style="italic">manga</text></g><g class="a" style="--d:0.50s" data-go="1" role="button" tabindex="0"><rect x="232" y="52" width="190" height="110" rx="10" fill="#f8f0fd" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="260.0" y="107.0" dominant-baseline="central" font-size="20" font-weight="700" fill="#111" text-anchor="middle">(a)</text><text x="352.0" y="95.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Pre-</text><text x="352.0" y="119.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Processing</text></g><g class="a" style="--d:0.35s"><path class="ln" pathLength="1" d="M174.0 107.0 L232.0 107.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g><g class="a" style="--d:0.90s"><image href="static/method/fig/ic_desc.png?v=7" x="488.0" y="72.0" width="63.4" height="70.0"/><g transform="translate(561.4 72.0) scale(0.700)"><path d="M8 4h52l22 22v66a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="#eef4fc" stroke="#222" stroke-width="5"/><path d="M60 4v22h22" fill="#6d9be0" stroke="#222" stroke-width="5" stroke-linejoin="round"/><rect x="16" y="34" width="50" height="6" rx="3" fill="#222"/><rect x="16" y="48" width="40" height="6" rx="3" fill="#222"/><rect x="16" y="62" width="46" height="6" rx="3" fill="#222"/><rect x="16" y="76" width="28" height="6" rx="3" fill="#222"/><circle cx="74" cy="80" r="20" fill="#ffd34d" stroke="#222" stroke-width="5"/><rect x="68" y="66" width="12" height="18" rx="6" fill="#6d9be0" stroke="#222" stroke-width="3"/><path d="M64 80a10 10 0 0 0 20 0M74 90v6" fill="none" stroke="#222" stroke-width="3"/></g></g><g class="a" style="--d:0.90s"><text x="556.9" y="162.5" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" text-anchor="middle" font-style="italic">Character Desc.</text><text x="556.9" y="181.5" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" text-anchor="middle" font-style="italic">&amp; Transcript</text></g><g class="a" style="--d:0.75s"><path class="ln" pathLength="1" d="M422.0 107.0 L488.0 107.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g><g class="a" style="--d:1.30s" data-go="2" role="button" tabindex="0"><rect x="722" y="52" width="230" height="110" rx="10" fill="#ffeed0" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="750.0" y="107.0" dominant-baseline="central" font-size="20" font-weight="700" fill="#111" text-anchor="middle">(b)</text><text x="862.0" y="83.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Script and</text><text x="862.0" y="107.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Storyboard</text><text x="862.0" y="131.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Refinement</text></g><g class="a" style="--d:1.15s"><path class="ln" pathLength="1" d="M625.8 107.0 L722.0 107.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g><g class="a" style="--d:2.00s"><image href="static/method/fig/ic_script.png?v=7" x="60.0" y="330.0" width="56.8" height="72.0"/><image href="static/method/elf1/sb1.jpg?v=7" x="128.8" y="282.0" width="300.0" height="167.0" preserveAspectRatio="xMidYMid slice"/><rect x="128.8" y="282.0" width="300.0" height="167.0" fill="none" stroke="#222" stroke-width="1.5"/></g><g class="a" style="--d:2.00s"><text x="244.4" y="476.0" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" text-anchor="middle" font-style="italic">Script &amp; Storyboard</text></g><g class="a" style="--d:1.70s"><path class="ln" pathLength="1" d="M837.0 162.0 L837.0 236.0 L278.8 236.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:1.85s"><path class="ln" pathLength="1" d="M278.8 236.0 L278.8 282.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g><g class="a" style="--d:2.40s" data-go="3" role="button" tabindex="0"><rect x="520" y="311" width="190" height="110" rx="10" fill="#fffdc4" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="548.0" y="366.0" dominant-baseline="central" font-size="20" font-weight="700" fill="#111" text-anchor="middle">(c)</text><text x="640.0" y="342.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Video</text><text x="640.0" y="366.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Generation</text><text x="640.0" y="390.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">Pipeline</text></g><g class="a" style="--d:2.25s"><path class="ln" pathLength="1" d="M428.8 365.5 L520.0 365.5" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g><g class="a" style="--d:2.80s"><foreignObject x="764" y="274" width="312" height="175"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/final.mp4?v=7" poster="static/method/elf1/final.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject></g><g class="a" style="--d:2.80s"><text x="920.0" y="476.0" dominant-baseline="central" font-size="16" font-weight="700" fill="#333" text-anchor="middle" font-style="italic">Animation</text></g><g class="a" style="--d:2.65s"><path class="ln" pathLength="1" d="M710.0 366.0 L764.0 366.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#ov-111)"/></g></svg></div>
+        <div data-layer="1" data-cap="<b>(a) Pre-processing.</b> Magi detects the manga panels, puts them in reading order, and extracts a transcript. The Character Description Creator writes identity-defining traits from the reference image. Shown on a real example."><svg class="pfig" viewBox="0 0 1100 430" role="img" aria-label="Pre-processing stage"><defs><marker id="pa-111" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#111"/></marker><marker id="pa-c8692b" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#c8692b"/></marker><marker id="pa-2ea043" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#2ea043"/></marker><marker id="pa-3a73c4" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#3a73c4"/></marker><marker id="pa-e02424" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#e02424"/></marker></defs><g class="a" style="--d:0.05s"><rect x="3" y="3" width="1094" height="424" rx="26" fill="#f8f0fd" stroke="#222" stroke-width="2.4"/><rect x="427.6" y="13" width="244.8" height="32" rx="9" fill="#e5bdff"/><text x="550.0" y="29.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">(a) Pre-Processing</text></g><g class="a" style="--d:0.20s"><rect x="20" y="58" width="236" height="352" rx="20" fill="#fdfaff"/><image href="static/method/elf1/ref.jpg?v=7" x="32.0" y="72.0" width="212.0" height="63.0" preserveAspectRatio="xMidYMid slice"/><rect x="32.0" y="72.0" width="212.0" height="63.0" fill="none" stroke="#222" stroke-width="1.5"/><image href="static/method/elf1/page.jpg?v=7" x="74.0" y="154.0" width="128.0" height="182.0" preserveAspectRatio="xMidYMid slice"/><rect x="74.0" y="154.0" width="128.0" height="182.0" fill="none" stroke="#222" stroke-width="1.5"/><text x="138.0" y="363.6" dominant-baseline="central" font-size="14" font-weight="400" fill="#111" text-anchor="middle" font-style="italic">Character reference</text><text x="138.0" y="380.4" dominant-baseline="central" font-size="14" font-weight="400" fill="#111" text-anchor="middle" font-style="italic">&amp; manga page</text></g><g class="a pop" style="--d:0.60s"><rect x="300" y="70" width="220" height="68" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="386.2" y="86.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Character</text><text x="386.2" y="104.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Description</text><text x="386.2" y="122.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Creator</text><image href="static/method/fig/ic_creator.png?v=7" x="472.4" y="80.0" width="37.6" height="48.0"/></g><g class="a" style="--d:0.45s"><path class="ln" pathLength="1" d="M244.0 103.5 L300.0 103.5" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pa-111)"/></g><g class="a" style="--d:0.80s"><rect x="304" y="180" width="15" height="164" fill="#afabab"/><rect x="338" y="180" width="15" height="164" fill="#afabab"/><rect x="372" y="180" width="15" height="164" fill="#afabab"/><rect x="406" y="180" width="15" height="164" fill="#afabab"/><rect x="440" y="180" width="15" height="164" fill="#afabab"/><rect x="322" y="238" width="116" height="48" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="380.0" y="262.0" dominant-baseline="central" font-size="19" font-weight="400" fill="#111" text-anchor="middle">Magi</text></g><g class="a" style="--d:0.90s"><text x="380.0" y="371.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#2d6fd2" text-anchor="middle">Detect panels,</text><text x="380.0" y="389.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#2d6fd2" text-anchor="middle">extract transcript</text></g><g class="a" style="--d:0.70s"><path class="ln" pathLength="1" d="M202.0 261.4 L304.0 261.4" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pa-111)"/></g><g class="a pop" style="--d:1.00s"><rect x="560" y="62" width="520" height="88" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="1.8"/><text x="574.0" y="86.0" dominant-baseline="central" font-size="15" font-weight="700" fill="#111" text-anchor="start" font-style="italic">Character Description</text><image href="static/method/fig/ic_desc.png?v=7" x="1040.0" y="70.0" width="29.0" height="32.0"/><text x="574.0" y="113.0" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#111" text-anchor="start" class="sans">Young male, average build, leaning forward; short, messy dark purple hair</text><text x="574.0" y="131.0" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#111" text-anchor="start" class="sans">with jagged bangs; confident, slightly smug expression, brown eyes; ...</text></g><g class="a" style="--d:0.90s"><path class="ln" pathLength="1" d="M520.0 104.0 L560.0 104.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pa-111)"/></g><g class="a pop" style="--d:1.25s"><rect x="560" y="166" width="520" height="84" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="1.8"/><text x="574.0" y="190.0" dominant-baseline="central" font-size="15" font-weight="700" fill="#111" text-anchor="start" font-style="italic">Transcript</text><g transform="translate(1044.0 172.0) scale(0.300)"><path d="M8 4h52l22 22v66a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4z" fill="#eef4fc" stroke="#222" stroke-width="5"/><path d="M60 4v22h22" fill="#6d9be0" stroke="#222" stroke-width="5" stroke-linejoin="round"/><rect x="16" y="34" width="50" height="6" rx="3" fill="#222"/><rect x="16" y="48" width="40" height="6" rx="3" fill="#222"/><rect x="16" y="62" width="46" height="6" rx="3" fill="#222"/><rect x="16" y="76" width="28" height="6" rx="3" fill="#222"/><circle cx="74" cy="80" r="20" fill="#ffd34d" stroke="#222" stroke-width="5"/><rect x="68" y="66" width="12" height="18" rx="6" fill="#6d9be0" stroke="#222" stroke-width="3"/><path d="M64 80a10 10 0 0 0 20 0M74 90v6" fill="none" stroke="#222" stroke-width="3"/></g><text x="574.0" y="215.0" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#111" text-anchor="start" class="sans">&lt;0&gt; Great. If I keep moving, they should notice me.</text><text x="574.0" y="233.0" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#111" text-anchor="start" class="sans">&lt;2&gt; Marie, how are things looking?</text></g><g class="a pop" style="--d:1.40s"><rect x="560" y="266" width="520" height="144" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="1.8"/><text x="574.0" y="290.0" dominant-baseline="central" font-size="15" font-weight="700" fill="#111" text-anchor="start" font-style="italic">Cropped Manga Panels (reading order)</text></g><g class="a" style="--d:1.15s"><path class="ln" pathLength="1" d="M455.0 221.0 L508.0 221.0 L508.0 208.0 L560.0 208.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pa-111)"/></g><g class="a" style="--d:1.30s"><path class="ln" pathLength="1" d="M455.0 303.0 L508.0 303.0 L508.0 338.0 L560.0 338.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pa-111)"/></g><g class="a pop" style="--d:1.60s"><image href="static/method/elf1/p1.jpg?v=7" x="574.0" y="317.5" width="38.2" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="574.0" y="317.5" width="38.2" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="576.0" cy="317.5" r="10" fill="#111"/><text x="576.0" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text></g><g class="a pop" style="--d:1.72s"><image href="static/method/elf1/p2.jpg?v=7" x="618.2" y="317.5" width="101.0" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="618.2" y="317.5" width="101.0" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="620.2" cy="317.5" r="10" fill="#111"/><text x="620.2" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text></g><g class="a pop" style="--d:1.84s"><image href="static/method/elf1/p3.jpg?v=7" x="725.2" y="317.5" width="204.9" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="725.2" y="317.5" width="204.9" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="727.2" cy="317.5" r="10" fill="#111"/><text x="727.2" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text></g><g class="a pop" style="--d:1.96s"><image href="static/method/elf1/p4.jpg?v=7" x="936.1" y="317.5" width="38.9" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="936.1" y="317.5" width="38.9" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="938.1" cy="317.5" r="10" fill="#111"/><text x="938.1" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">4</text></g><g class="a pop" style="--d:2.08s"><image href="static/method/elf1/p5.jpg?v=7" x="981.0" y="317.5" width="55.5" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="981.0" y="317.5" width="55.5" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="983.0" cy="317.5" r="10" fill="#111"/><text x="983.0" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">5</text></g><g class="a pop" style="--d:2.20s"><image href="static/method/elf1/p6.jpg?v=7" x="1042.4" y="317.5" width="23.6" height="73.1" preserveAspectRatio="xMidYMid slice"/><rect x="1042.4" y="317.5" width="23.6" height="73.1" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="1044.4" cy="317.5" r="10" fill="#111"/><text x="1044.4" y="317.5" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">6</text></g></svg></div>
+        <div data-layer="2" data-cap="<b>(b) Script and storyboard refinement.</b> The Script Creator writes three scripts; the Clip and Character Reviewers assemble the best one clip by clip. The Storyboard Creator draws three storyboards and the Storyboard Reviewer keeps the best. Feedback from both reviewers goes back to the Script Creator for the next iteration."><svg class="pfig" viewBox="0 0 1100 400" role="img" aria-label="Script and storyboard refinement stage"><defs><marker id="pb-111" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#111"/></marker><marker id="pb-c8692b" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#c8692b"/></marker><marker id="pb-2ea043" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#2ea043"/></marker><marker id="pb-3a73c4" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#3a73c4"/></marker><marker id="pb-e02424" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#e02424"/></marker></defs><g class="a" style="--d:0.05s"><rect x="3" y="3" width="1094" height="394" rx="26" fill="#ffeed0" stroke="#222" stroke-width="2.4"/><rect x="236.2" y="13" width="627.6" height="32" rx="9" fill="#ffcd79"/><text x="550.0" y="29.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">(b) Script and Storyboard Refinement (N iterations)</text></g><g class="a pop" style="--d:0.20s"><rect x="22" y="84" width="120" height="44" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="1.8"/><text x="82.0" y="106.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle" font-style="italic">from (a)</text></g><g class="a pop" style="--d:0.40s"><rect x="180" y="72" width="210" height="68" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="261.2" y="96.4" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Script</text><text x="261.2" y="115.6" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Creator</text><image href="static/method/fig/ic_creator.png?v=7" x="342.4" y="82.0" width="37.6" height="48.0"/></g><g class="a" style="--d:0.30s"><path class="ln" pathLength="1" d="M142.0 106.0 L180.0 106.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a" style="--d:0.60s"><path class="ln" pathLength="1" d="M285.0 140.0 L285.0 158.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:0.60s"><path class="ln" pathLength="1" d="M225.0 158.0 L345.0 158.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:0.70s"><path class="ln" pathLength="1" d="M225.0 158.0 L225.0 182.0" stroke="#c8692b" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-c8692b)"/></g><g class="a" style="--d:0.70s"><path class="ln" pathLength="1" d="M285.0 158.0 L285.0 182.0" stroke="#2ea043" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-2ea043)"/></g><g class="a" style="--d:0.70s"><path class="ln" pathLength="1" d="M345.0 158.0 L345.0 182.0" stroke="#3a73c4" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-3a73c4)"/></g><g class="a pop" style="--d:0.85s"><image href="static/method/fig/ic_script.png?v=7" x="204.0" y="182.0" width="39.4" height="50.0"/><image href="static/method/fig/ic_script.png?v=7" x="264.0" y="182.0" width="39.4" height="50.0"/><image href="static/method/fig/ic_script.png?v=7" x="324.0" y="182.0" width="39.4" height="50.0"/></g><g class="a pop" style="--d:1.10s"><rect x="110" y="268" width="342" height="116" rx="18" fill="#fffaf1"/><rect x="122" y="280" width="150" height="72" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="197.0" y="306.4" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Clip</text><text x="197.0" y="325.6" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Reviewer</text><rect x="290" y="280" width="150" height="72" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="365.0" y="306.4" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Character</text><text x="365.0" y="325.6" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Reviewer</text><image href="static/method/fig/ic_rev.png?v=7" x="262.0" y="330.0" width="45.5" height="46.0"/></g><g class="a" style="--d:1.00s"><path class="ln" pathLength="1" d="M225 234 V248 H345 M285 234 V248 M345 234 V248" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:1.05s"><path class="ln" pathLength="1" d="M285.0 248.0 L285.0 268.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a pop" style="--d:1.50s"><rect x="486" y="276" width="110" height="100" rx="12" fill="#fbe5d6" stroke="#f08a5b" stroke-width="2.6"/><image href="static/method/fig/ic_script.png?v=7" x="516.0" y="284.0" width="39.4" height="50.0"/><text x="541.0" y="356.0" dominant-baseline="central" font-size="17" font-weight="700" fill="#111" text-anchor="middle" font-style="italic">Best</text></g><g class="a" style="--d:1.40s"><path class="ln" pathLength="1" d="M452.0 326.0 L486.0 326.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a pop" style="--d:1.90s"><rect x="636" y="292" width="210" height="68" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="717.2" y="316.4" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Storyboard</text><text x="717.2" y="335.6" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Creator</text><image href="static/method/fig/ic_creator.png?v=7" x="798.4" y="302.0" width="37.6" height="48.0"/></g><g class="a" style="--d:1.80s"><path class="ln" pathLength="1" d="M596.0 326.0 L636.0 326.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a" style="--d:2.10s"><path class="ln" pathLength="1" d="M741.0 292.0 L736.0 270.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:2.10s"><path class="ln" pathLength="1" d="M636.0 270.0 L836.0 270.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:2.20s"><path class="ln" pathLength="1" d="M636.0 270.0 L636.0 244.0" stroke="#c8692b" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-c8692b)"/></g><g class="a" style="--d:2.20s"><path class="ln" pathLength="1" d="M736.0 270.0 L736.0 244.0" stroke="#2ea043" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-2ea043)"/></g><g class="a" style="--d:2.20s"><path class="ln" pathLength="1" d="M836.0 270.0 L836.0 244.0" stroke="#3a73c4" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-3a73c4)"/></g><g class="a pop" style="--d:2.35s"><image href="static/method/elf1/sb0.jpg?v=7" x="590.0" y="192.0" width="92.0" height="52.0" preserveAspectRatio="xMidYMid slice"/><rect x="590.0" y="192.0" width="92.0" height="52.0" fill="none" stroke="#222" stroke-width="1.5"/><image href="static/method/elf1/sb1.jpg?v=7" x="690.0" y="192.0" width="92.0" height="52.0" preserveAspectRatio="xMidYMid slice"/><rect x="690.0" y="192.0" width="92.0" height="52.0" fill="none" stroke="#222" stroke-width="1.5"/><image href="static/method/elf1/sb2.jpg?v=7" x="790.0" y="192.0" width="92.0" height="52.0" preserveAspectRatio="xMidYMid slice"/><rect x="790.0" y="192.0" width="92.0" height="52.0" fill="none" stroke="#222" stroke-width="1.5"/></g><g class="a pop" style="--d:2.80s"><rect x="636" y="74" width="210" height="66" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="712.3" y="97.4" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Storyboard</text><text x="712.3" y="116.6" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Reviewer</text><image href="static/method/fig/ic_rev.png?v=7" x="788.5" y="83.0" width="47.5" height="48.0"/></g><g class="a" style="--d:2.65s"><path class="ln" pathLength="1" d="M636.0 192.0 L681.0 140.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a" style="--d:2.65s"><path class="ln" pathLength="1" d="M736.0 192.0 L736.0 140.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a" style="--d:2.65s"><path class="ln" pathLength="1" d="M836.0 192.0 L791.0 140.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a pop" style="--d:3.20s"><rect x="906" y="62" width="180" height="150" rx="12" fill="#fbe5d6" stroke="#f08a5b" stroke-width="2.6"/><image href="static/method/elf1/sb1.jpg?v=7" x="916.0" y="72.0" width="160.0" height="89.0" preserveAspectRatio="xMidYMid slice"/><rect x="916.0" y="72.0" width="160.0" height="89.0" fill="none" stroke="#222" stroke-width="1.5"/><text x="996.0" y="190.0" dominant-baseline="central" font-size="17" font-weight="700" fill="#111" text-anchor="middle" font-style="italic">Best</text></g><g class="a" style="--d:3.10s"><path class="ln" pathLength="1" d="M846.0 107.0 L906.0 107.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-111)"/></g><g class="a pop" style="--d:3.60s"><rect x="428" y="82" width="164" height="50" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="1.8"/><text x="484.0" y="107.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle" font-style="italic">Feedback</text><image href="static/method/fig/ic_feedback.png?v=7" x="547.9" y="89.0" width="34.1" height="36.0"/></g><g class="a" style="--d:3.50s"><path class="ln" pathLength="1" d="M636.0 107.0 L592.0 107.0" stroke="#e02424" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-e02424)"/></g><g class="a" style="--d:3.50s"><path class="ln" pathLength="1" d="M420.0 268.0 L420.0 250.0 L500.0 250.0 L500.0 132.0" stroke="#e02424" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-e02424)"/></g><g class="a" style="--d:3.90s"><path class="ln" pathLength="1" d="M428.0 107.0 L390.0 107.0" stroke="#e02424" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pb-e02424)"/></g></svg></div>
+        <div data-layer="3" data-cap="<b>(c) Video generation.</b> The best storyboard is cropped into panels. For each clip, the Video Creator generates candidates from the panel and the script, and the Video Reviewer keeps the best (marked BEST); the best clips are concatenated into the final video. The videos are the real candidates for this example."><svg class="pfig" viewBox="0 0 1260 430" role="img" aria-label="Video generation stage"><defs><marker id="pc-111" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#111"/></marker><marker id="pc-c8692b" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#c8692b"/></marker><marker id="pc-2ea043" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#2ea043"/></marker><marker id="pc-3a73c4" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#3a73c4"/></marker><marker id="pc-e02424" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0.5 L10 5 L0 9.5z" fill="#e02424"/></marker></defs><g class="a pop" style="--d:0.20s"><rect x="4" y="96" width="168" height="130" rx="12" fill="#fbe5d6" stroke="#f08a5b" stroke-width="2.6"/><image href="static/method/elf1/sb1.jpg?v=7" x="14.0" y="106.0" width="148.0" height="83.0" preserveAspectRatio="xMidYMid slice"/><rect x="14.0" y="106.0" width="148.0" height="83.0" fill="none" stroke="#222" stroke-width="1.5"/><text x="88.0" y="208.0" dominant-baseline="central" font-size="17" font-weight="700" fill="#111" text-anchor="middle" font-style="italic">Best</text></g><g class="a pop" style="--d:0.20s"><rect x="4" y="240" width="168" height="98" rx="12" fill="#fbe5d6" stroke="#f08a5b" stroke-width="2.6"/><image href="static/method/fig/ic_script.png?v=7" x="64.0" y="250.0" width="41.0" height="52.0"/><text x="88.0" y="320.0" dominant-baseline="central" font-size="17" font-weight="700" fill="#111" text-anchor="middle" font-style="italic">Best</text></g><g class="a" style="--d:0.40s"><polygon points="174.0,207.0 194.0,207.0 194.0,198.0 216.0,218.0 194.0,238.0 194.0,229.0 174.0,229.0" fill="#b4c7e7"/></g><g class="a" style="--d:0.05s"><rect x="220" y="3" width="740" height="424" rx="26" fill="#fffdc4" stroke="#222" stroke-width="2.4"/><rect x="403.8" y="13" width="372.4" height="32" rx="9" fill="#f8e767"/><text x="590.0" y="29.0" dominant-baseline="central" font-size="19" font-weight="700" fill="#111" text-anchor="middle">(c) Video Generation Pipeline</text></g><g class="a pop" style="--d:0.50s"><rect x="242" y="52" width="696" height="32" rx="10" fill="#e7e6e6" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="590.0" y="68.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Crop Storyboard Panels</text></g><g class="a" style="--d:0.60s"><text x="590.0" y="103.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#2d6fd2" text-anchor="middle">clip-wise generation</text></g><g class="a" style="--d:0.80s"><text x="307.0" y="123.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#2d6fd2" text-anchor="middle">Clip 1</text><image href="static/method/elf1/sbp1.jpg?v=7" x="252.0" y="136.0" width="110.0" height="86.0" preserveAspectRatio="xMidYMid slice"/><rect x="252.0" y="136.0" width="110.0" height="86.0" fill="none" stroke="#222" stroke-width="1.5"/></g><g class="a pop" style="--d:1.10s"><rect x="246" y="252" width="130" height="56" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="288.8" y="271.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Video</text><text x="288.8" y="289.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Creator</text><image href="static/method/fig/ic_creator.png?v=7" x="331.5" y="258.0" width="34.5" height="44.0"/></g><g class="a" style="--d:1.00s"><path class="ln" pathLength="1" d="M307.0 222.0 L307.0 252.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-111)"/></g><g class="a" style="--d:1.30s"><path class="ln" pathLength="1" d="M376.0 280.0 L402.0 280.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:1.30s"><path class="ln" pathLength="1" d="M402.0 167.0 L402.0 300.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:1.40s"><path class="ln" pathLength="1" d="M402.0 167.0 L448.0 167.0" stroke="#e02424" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-e02424)"/></g><g class="a" style="--d:1.40s"><path class="ln" pathLength="1" d="M402.0 241.0 L448.0 241.0" stroke="#2ea043" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-2ea043)"/></g><g class="a" style="--d:1.40s"><path class="ln" pathLength="1" d="M402.0 300.0 L481.0 300.0" stroke="#3a73c4" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-3a73c4)"/></g><g class="a pop" style="--d:1.55s"><foreignObject x="448" y="136" width="110" height="62"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/c1_1.mp4?v=7" poster="static/method/elf1/c1_1.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject><foreignObject x="448" y="210" width="110" height="62"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/c1_2.mp4?v=7" poster="static/method/elf1/c1_2.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject><text x="503.0" y="300.0" dominant-baseline="central" font-size="20" font-weight="400" fill="#111" text-anchor="middle">⋯</text></g><g class="a pop" style="--d:1.95s"><rect x="433.0" y="346" width="140.0" height="56" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="476.2" y="365.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Video</text><text x="476.2" y="383.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Reviewer</text><image href="static/method/fig/ic_rev.png?v=7" x="519.5" y="352.0" width="43.5" height="44.0"/></g><g class="a" style="--d:1.85s"><path class="ln" pathLength="1" d="M503.0 314.0 L503.0 346.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-111)"/></g><g class="a pop" style="--d:2.25s"><g transform="translate(532 132) rotate(-6)"><rect x="-22" y="-11" width="44" height="22" rx="5" fill="#fff" stroke="#d6443a" stroke-width="2.4"/><text x="0" y="0.5" dominant-baseline="central" text-anchor="middle" font-size="13" font-weight="700" fill="#d6443a">BEST</text></g></g><g class="a" style="--d:2.50s"><text x="667.0" y="123.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#2d6fd2" text-anchor="middle">Clip 2</text><image href="static/method/elf1/sbp2.jpg?v=7" x="612.0" y="136.0" width="110.0" height="86.0" preserveAspectRatio="xMidYMid slice"/><rect x="612.0" y="136.0" width="110.0" height="86.0" fill="none" stroke="#222" stroke-width="1.5"/></g><g class="a pop" style="--d:2.80s"><rect x="606" y="252" width="130" height="56" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="648.8" y="271.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Video</text><text x="648.8" y="289.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Creator</text><image href="static/method/fig/ic_creator.png?v=7" x="691.5" y="258.0" width="34.5" height="44.0"/></g><g class="a" style="--d:2.70s"><path class="ln" pathLength="1" d="M667.0 222.0 L667.0 252.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-111)"/></g><g class="a" style="--d:3.00s"><path class="ln" pathLength="1" d="M736.0 280.0 L762.0 280.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:3.00s"><path class="ln" pathLength="1" d="M762.0 167.0 L762.0 300.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round"/></g><g class="a" style="--d:3.10s"><path class="ln" pathLength="1" d="M762.0 167.0 L808.0 167.0" stroke="#e02424" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-e02424)"/></g><g class="a" style="--d:3.10s"><path class="ln" pathLength="1" d="M762.0 241.0 L808.0 241.0" stroke="#2ea043" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-2ea043)"/></g><g class="a" style="--d:3.10s"><path class="ln" pathLength="1" d="M762.0 300.0 L841.0 300.0" stroke="#3a73c4" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-3a73c4)"/></g><g class="a pop" style="--d:3.25s"><foreignObject x="808" y="136" width="110" height="62"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/c2_1.mp4?v=7" poster="static/method/elf1/c2_1.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject><foreignObject x="808" y="210" width="110" height="62"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/c2_2.mp4?v=7" poster="static/method/elf1/c2_2.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject><text x="863.0" y="300.0" dominant-baseline="central" font-size="20" font-weight="400" fill="#111" text-anchor="middle">⋯</text></g><g class="a pop" style="--d:3.65s"><rect x="793.0" y="346" width="140.0" height="56" rx="10" fill="#fff" stroke="#222" stroke-width="2.2" stroke-dasharray="8 5"/><text x="836.2" y="365.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Video</text><text x="836.2" y="383.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#111" text-anchor="middle">Reviewer</text><image href="static/method/fig/ic_rev.png?v=7" x="879.5" y="352.0" width="43.5" height="44.0"/></g><g class="a" style="--d:3.55s"><path class="ln" pathLength="1" d="M863.0 314.0 L863.0 346.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-111)"/></g><g class="a pop" style="--d:3.95s"><g transform="translate(892 132) rotate(-6)"><rect x="-22" y="-11" width="44" height="22" rx="5" fill="#fff" stroke="#d6443a" stroke-width="2.4"/><text x="0" y="0.5" dominant-baseline="central" text-anchor="middle" font-size="13" font-weight="700" fill="#d6443a">BEST</text></g></g><g class="a" style="--d:2.65s"><path class="ln" pathLength="1" d="M573.0 374.0 L793.0 374.0" stroke="#111" stroke-width="2.4" fill="none" stroke-linejoin="round" marker-end="url(#pc-111)"/></g><g class="a" style="--d:2.70s"><text x="683.0" y="362.0" dominant-baseline="central" font-size="12" font-weight="400" fill="#555" text-anchor="middle" font-style="italic">previous clip</text></g><g class="a" style="--d:4.30s"><text x="1112.0" y="177.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#2d6fd2" text-anchor="middle">Concatenate</text><text x="1112.0" y="195.0" dominant-baseline="central" font-size="15" font-weight="400" fill="#2d6fd2" text-anchor="middle">all best clips</text></g><g class="a" style="--d:4.40s"><polygon points="964.0,251.0 986.0,251.0 986.0,242.0 1006.0,262.0 986.0,282.0 986.0,273.0 964.0,273.0" fill="#8faadc"/></g><g class="a pop" style="--d:4.50s"><circle cx="1026" cy="262" r="15" fill="#fff" stroke="#111" stroke-width="2"/><text x="1026.0" y="261.0" dominant-baseline="central" font-size="22" font-weight="700" fill="#111" text-anchor="middle">+</text></g><g class="a" style="--d:4.60s"><polygon points="1044.0,251.0 1060.0,251.0 1060.0,242.0 1080.0,262.0 1060.0,282.0 1060.0,273.0 1044.0,273.0" fill="#8faadc"/></g><g class="a pop" style="--d:4.80s"><foreignObject x="1084" y="214" width="172" height="97"><video xmlns="http://www.w3.org/1999/xhtml" src="static/method/elf1/final.mp4?v=7" poster="static/method/elf1/final.jpg?v=7" muted="" loop="" playsinline="" preload="none" style="display:block;width:100%;height:100%;object-fit:cover;box-sizing:border-box;border:1.5px solid #222;background:#111"></video></foreignObject><text x="1170.0" y="330.0" dominant-baseline="central" font-size="16" font-weight="400" fill="#111" text-anchor="middle">Final Video</text></g></svg></div>
       </div>
       <p class="p-cap" aria-live="polite"></p>
     </div>
@@ -759,7 +639,7 @@
     <div class="player ss" id="ss">
       <div class="p-bar" role="tablist" aria-label="Script selection steps">
         <button class="p-tab" role="tab" data-go="0">1. Candidates<small>three scripts</small></button>
-        <button class="p-tab" role="tab" data-go="1">2. Review clip 6<small>against manga panel 6</small></button>
+        <button class="p-tab" role="tab" data-go="1">2. Clip 6 example<small>checked against manga panel 6</small></button>
         <button class="p-tab" role="tab" data-go="2">3. Assemble<small>best script</small></button>
         <div class="p-ctrl">
           <button type="button" data-prev aria-label="Previous step"><svg><use href="#i-prev"/></svg></button>
@@ -770,24 +650,25 @@
       <div class="p-stage">
         <div class="ss-layout">
           <div class="ss-left">
-            <div data-layer="0" data-cap="Three candidate scripts each describe the characters and the six clips. The parts each one gets right are marked.">
-              <div class="sgrid" id="ss-grid"></div>
+            <div data-layer="0" class="ss-g" data-cap="Three candidate scripts each describe the characters and the six clips. The parts each one gets right are marked.">
+              <div class="sgrid" id="ss-grid">
+                <!-- Step 2: the clip-6 column slides left and this bubble explains it, one line per script row. -->
+                <div class="ss-bubble" data-layer="1" data-cap="For clip 6, the reviewer checks each candidate against manga panel 6. Scripts 1 and 3 describe things that are not in the panel (red); script 2 matches it, so its clip 6 goes into the best script.">
+                  <div class="bub">
+                    <div class="bub-top a" style="--d:1.1s"><img src="static/method/elf_panel6.jpg" alt="Manga panel 6: the elf's staff bonks the creature's head"><span>Manga panel 6</span></div>
+                    <div class="bcard k1 a" style="--d:1.3s"><span class="btab">Script 1 clip 6</span><p>Extreme close-up shot. The creature's face occupies the lower left side of the screen, facing slightly screen right with its eyes tightly shut. On the right side of the screen, <span class="x" style="--d:2.3s">the elf's head leans into the frame, her face very close to the creature, looking down at it with a soft expression.</span> The top crystal portion of her wooden staff is visible resting near her shoulder on the right edge. Dialogue(the elf): 'Do you think you can go on?'</p><span class="verdict bad a" style="--d:2.9s">Wrong <svg><use href="#i-x"/></svg></span></div>
+                    <div class="bcard k2 a" style="--d:1.5s"><span class="btab">Script 2 clip 6</span><p>Extreme close-up shot. On the left side of the screen, the creature's face is visible in partial profile, facing left with tightly squeezed shut eyes. On the right side, the ornate head of the elf's staff (featuring a dark crescent shape and a diamond-shaped crystal) gently bonks the top of the creature's head from above. Dialogue(the elf): 'Do you think you can go on?'</p><span class="verdict ok a" style="--d:4.2s">Correct! <svg><use href="#i-ok"/></svg></span></div>
+                    <div class="bcard k3 a" style="--d:1.7s"><span class="btab">Script 3 clip 6</span><p><span class="x" style="--d:3.0s">A composite shot split horizontally. In the upper half, the elf is positioned on the right, kneeling and gently petting the top of the creature's head with her right hand while smiling.</span> The creature is on the left<span class="x" style="--d:3.3s">, looking flustered with its mouth open</span>. In the lower half, an extreme close-up shows the creature's face on the left with closed eyes, positioned next to <span class="x" style="--d:3.5s">the pointed base of the elf's staff</span> on the right. Dialogue(the creature): 'I'm not ash able as... back when I wash young...' Dialogue(the elf): '<span class="x" style="--d:3.7s">IN THAT CASE</span>, DO YOU THINK YOU CAN GO ON?'</p><span class="verdict bad a" style="--d:3.9s">Wrong <svg><use href="#i-x"/></svg></span></div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div data-layer="2" data-cap="The winners are recombined into one best script, which goes on to storyboard generation.">
               <div class="sgrid" style="margin-top:14px">
-                <span class="rl a" style="--d:.1s">Best script</span>
+                <span class="rl a" style="--d:1.2s">Best script</span>
                 <div class="best-row" id="ss-best" style="display:contents"></div>
               </div>
             </div>
-          </div>
-          <div data-layer="1" class="ss-review" data-cap="For clip 6, the reviewer checks each candidate against manga panel 6. Scripts 1 and 3 describe details that are not in the panel; script 2 matches it.">
-            <figure class="p6 a" style="--d:.1s"><img src="static/method/elf_panel6.jpg" alt="Manga panel 6: the elf's staff bonks the creature's head"><figcaption>Manga panel 6</figcaption></figure>
-            <div class="clipcards">
-              <div class="clipcard r1 a" style="--d:.4s"><h4>Script 1, clip 6</h4><p>Extreme close-up shot. The creature's face occupies the lower left side of the screen, facing slightly screen right with its eyes tightly shut. On the right side of the screen, <span class="x" style="--d:1.6s">the elf's head leans into the frame, her face very close to the creature, looking down at it with a soft expression.</span> The top crystal portion of her wooden staff is visible resting near her shoulder on the right edge.</p><span class="verdict bad a" style="--d:2.2s">Wrong <svg><use href="#i-x"/></svg></span></div>
-              <div class="clipcard r2 a" style="--d:.7s"><h4>Script 2, clip 6</h4><p>Extreme close-up shot. On the left side of the screen, the creature's face is visible in partial profile, facing left with tightly squeezed shut eyes. On the right side, the ornate head of the elf's staff (featuring a dark crescent shape and a diamond-shaped crystal) gently bonks the top of the creature's head from above.</p><span class="verdict ok a" style="--d:3.6s">Correct <svg><use href="#i-ok"/></svg></span></div>
-              <div class="clipcard r3 a" style="--d:1.0s"><h4>Script 3, clip 6</h4><p><span class="x" style="--d:2.4s">A composite shot split horizontally. In the upper half, the elf is positioned on the right, kneeling and gently petting the top of the creature's head with her right hand while smiling.</span> The creature is on the left<span class="x" style="--d:2.8s">, looking flustered with its mouth open</span>. In the lower half, an extreme close-up shows the creature's face on the left with closed eyes, positioned next to <span class="x" style="--d:3.1s">the pointed base of the elf's staff</span> on the right.</p><span class="verdict bad a" style="--d:3.3s">Wrong <svg><use href="#i-x"/></svg></span></div>
-            </div>
-            <p class="choose a" style="--d:4.0s"><span>Script 2, clip 6 becomes clip 6 of the best script</span></p>
           </div>
         </div>
       </div>
@@ -796,14 +677,20 @@
   </section>
 
   <section id="comparison">
-    <div class="sec-head"><h2>Comparison with Baselines</h2></div>
+    <div class="sec-head"><span class="kick" aria-hidden="true">03</span><h2>Comparison with Baselines</h2></div>
     <p class="lead">All script-based baselines receive the same refined script as Manga2Animate, so differences come from how each method turns it into video.</p>
-    <div class="tabs" role="tablist" id="scene-tabs"></div>
-    <div id="scene-view"></div>
+    <div class="sheet cmp">
+      <div class="sheet-bar">
+        <div class="tabs" role="tablist" id="scene-tabs"></div>
+        <span class="spacer"></span>
+        <button class="ghost" type="button" id="scene-restart" style="flex:none">Restart<span class="long"> all four</span></button>
+      </div>
+      <div id="scene-view"></div>
+    </div>
   </section>
 
   <section id="results">
-    <div class="sec-head"><h2>User Study and Ablations</h2></div>
+    <div class="sec-head"><span class="kick" aria-hidden="true">04</span><h2>User Study and Ablations</h2></div>
 
     <h3 class="sub" style="margin-top:0">User study</h3>
     <p class="lead">37 participants saw eight storyboard cases and eight video cases next to the input manga, with method names hidden and order randomized, and picked the best result for each criterion.</p>
@@ -816,7 +703,7 @@
   </section>
 
   <section id="citation">
-    <div class="sec-head"><h2>Citation</h2></div>
+    <div class="sec-head"><span class="kick" aria-hidden="true">05</span><h2>Citation</h2></div>
     <div class="bib">
 <pre id="bibtex">@misc{manga2animate2026,
   title={{Manga2Animate}: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning},
@@ -883,6 +770,24 @@
   }, { threshold: 0.25 });
   const watch = root => root.querySelectorAll("video").forEach(v => io.observe(v));
 
+  // ---------- Title peekers: a character pops up over a random spot of the title every few seconds ----------
+  (function () {
+    const host = document.querySelector(".peekers");
+    if (!host || reduced) return;
+    const CHARS = ["goblin_11", "elf3_1", "elf3_8.5", "lovehina_11", "dualjustice2_3.5", "trigger_1"];
+    let k = 0, last = -1;
+    const pop = () => {
+      if (document.hidden) return;
+      let slot; do { slot = Math.floor(Math.random() * 5); } while (slot === last); last = slot;
+      const p = el("span", { class: "peek show", style: `left:${6 + slot * 19}%;--r:${(slot % 2 ? 1 : -1) * (6 + Math.random() * 8)}deg` },
+        el("img", { src: `static/method/chars/${CHARS[k++ % CHARS.length]}.jpg?v=7`, alt: "" }));
+      host.append(p);
+      p.addEventListener("animationend", () => p.remove());
+    };
+    setTimeout(pop, 900);
+    setInterval(pop, 2600);
+  })();
+
   const bgVideo = document.getElementById("bg-video");
   if (!reduced) bgVideo.play().catch(() => {});
 
@@ -900,7 +805,7 @@
   }
   function openImage(src, alt) {
     dlgTitle.textContent = alt || "";
-    dlgBody.replaceChildren(el("img", { class: "dlg-img", src, alt: alt || "" }));
+    dlgBody.replaceChildren(el("img", { class: "dlg-img", src, alt: alt || "", style: "--pw:1140px" }));
     dlg.showModal();
   }
   // lock the page behind the dialog so scrolling inside it never scrolls the page
@@ -918,9 +823,17 @@
         tCut = document.getElementById("t-cut"), tNote = document.getElementById("t-note"), tReel = document.getElementById("t-reel");
   let tIdx = 0;
   // Fan the pages across the deck: as tall as the deck allows, overlapping only when they do not fit side by side.
+  const tBody = document.querySelector(".teaser .sheet-body");
   function layoutDeck() {
     const imgs = [...tDeck.querySelectorAll("img")];
     if (!imgs.length || imgs.some(i => !i.naturalWidth)) return;
+    // width the pages need at the video's height (fanned pages may overlap by ~40%), as a share of the video column
+    const rs = imgs.map(i => i.naturalWidth / i.naturalHeight);
+    const rEff = Math.max(...rs, rs.reduce((a, b) => a + b, 0) * (rs.length > 1 ? 0.62 : 1));
+    const cols = `minmax(0, ${Math.min(1, Math.max(0.34, rEff * 9 / 16)).toFixed(3)}fr) 56px minmax(0, 1fr)`;
+    if (innerWidth > 820) { if (tBody.style.gridTemplateColumns !== cols) tBody.style.gridTemplateColumns = cols; }
+    else tBody.style.gridTemplateColumns = "";
+    tDeck.style.setProperty("--deck-ar", Math.min(1.8, Math.max(0.9, rEff)).toFixed(3));
     const m = 8, W = tDeck.clientWidth - 2 * m, H = tDeck.clientHeight - 2 * m, gap = 10, n = imgs.length;
     const ratios = imgs.map(i => i.naturalWidth / i.naturalHeight);
     const h = Math.min(H, ...ratios.map(r => W / r));
@@ -955,7 +868,9 @@
       tVideo.classList.remove("swap");
     }, reduced ? 0 : 180);
     tReel.querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-current", String(k === tIdx)));
-    tReel.children[tIdx]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduced ? "auto" : "smooth" });
+    // scroll only the reel, never the page
+    const btn = tReel.children[tIdx];
+    if (btn) tReel.scrollTo({ left: btn.offsetLeft - (tReel.clientWidth - btn.offsetWidth) / 2, behavior: reduced ? "auto" : "smooth" });
   }
   TEASER.forEach((id, i) => {
     const b = el("button", { type: "button", "aria-label": `Case ${i + 1}`, style: `background-image:url(${VID}${id}/poster.jpg)` }, el("span", { text: pad(i + 1) }));
@@ -984,16 +899,19 @@
   function animEnd(layer) {
     let end = 0;
     layer.querySelectorAll("[style]").forEach(e => {
+      if (e.closest("[data-layer]") !== layer) return;  // nested steps are timed on their own
       const st = e.getAttribute("style"), d = st.match(/--d:\s*([\d.]+)s/), d2 = st.match(/--d2:\s*([\d.]+)s/);
-      if (d) end = Math.max(end, +d[1] + (e.classList.contains("wipe") ? 1.1 : 0.6));
+      if (d) end = Math.max(end, +d[1] + (e.classList.contains("wipe") ? 1.1 : e.classList.contains("fade") ? 0.9 : 0.6));
       if (d2) end = Math.max(end, +d2[1] + 0.5);
     });
     if (layer.querySelector(".scan")) end = Math.max(end, 3.8);  // Magi scan: 1s delay + 2 x 1.4s
     return end * 1000;
   }
   function makePlayer(root, cumulative) {
+    // root.dataset.step lets CSS show or hide parts per step
     const tabs = [...root.querySelectorAll(".p-tab")], layers = [...root.querySelectorAll("[data-layer]")];
-    const durations = tabs.map((_, k) => Math.round(animEnd(root.querySelector(`[data-layer="${k}"]`)) + HOLD));
+    // a step can span several elements (e.g. the connector SVG and the cards both carry data-layer="2")
+    const durations = tabs.map((_, k) => Math.round(Math.max(...[...root.querySelectorAll(`[data-layer="${k}"]`)].map(animEnd)) + HOLD));
     const cap = root.querySelector(".p-cap"), stage = root.querySelector(".p-stage");
     let cur = -1, auto = !reduced, inView = false, timer;
     // Non-cumulative players size the stage to the active step only.
@@ -1003,9 +921,24 @@
       stage.style.height = (layers[cur].offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) + "px";
     }
     if (!cumulative) { const ro = new ResizeObserver(fit); layers.forEach(l => ro.observe(l)); }
+    // Arrowheads (SVG markers) ignore the dash animation, so they are attached only once the line is drawn.
+    const marked = [...root.querySelectorAll("[data-layer] path[marker-end]")];
+    marked.forEach(p => { p.dataset.me = p.getAttribute("marker-end"); });
+    function armMarkers() {
+      for (const p of marked) {
+        clearTimeout(p._t);
+        if (!p.closest("[data-layer].live")) { p.setAttribute("marker-end", p.dataset.me); continue; }
+        p.removeAttribute("marker-end");
+        const cs = getComputedStyle(p), sec = v => parseFloat(v) * (v.endsWith("ms") ? .001 : 1);
+        p._t = setTimeout(() => p.setAttribute("marker-end", p.dataset.me), 1000 * (sec(cs.animationDelay) + sec(cs.animationDuration)) - 60);
+      }
+    }
     function go(i, fromUser) {
+      const prev = cur;
       cur = (i + durations.length) % durations.length;
       if (fromUser) auto = false;
+      const ctx = root._beforeStep?.(prev, cur);
+      root.dataset.step = cur;
       for (const l of layers) {
         const k = +l.dataset.layer;
         l.classList.remove("live", "done");
@@ -1018,6 +951,8 @@
         t.setAttribute("aria-selected", String(k === cur));
         if (k === cur) { t.style.setProperty("--dur", durations[cur] + "ms"); t.setAttribute("aria-selected", "false"); void t.offsetWidth; t.setAttribute("aria-selected", "true"); }
       });
+      armMarkers();
+      root._afterStep?.(prev, cur, ctx);
       fit();
       schedule();
     }
@@ -1027,7 +962,10 @@
       root.classList.toggle("auto", running);
       if (running) timer = setTimeout(() => go(cur + 1), durations[cur]);
     }
-    root.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => go(+b.dataset.go, true)));
+    root.querySelectorAll("[data-go]").forEach(b => {
+      b.addEventListener("click", () => go(+b.dataset.go, true));
+      if (b.getAttribute("role") === "button") b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(+b.dataset.go, true); } });
+    });
     root.querySelector("[data-prev]").addEventListener("click", () => go(cur - 1, true));
     root.querySelector("[data-next]").addEventListener("click", () => go(cur + 1, true));
     root.querySelector("[data-toggle]").addEventListener("click", () => {
@@ -1041,72 +979,130 @@
     }, { threshold: 0.35 }).observe(root);
   }
 
-  // Script grids. Rows: candidate scripts; columns: character description + six clips.
+  // ---------- Clip-wise selection example ----------
+  // Rows: candidate scripts; columns: character description + six clips. SS_WIN[c] = winning script (paper figure).
   const COLS = ["Char.", "Clip 1", "Clip 2", "Clip 3", "Clip 4", "Clip 5", "Clip 6"];
-  // Real clip-wise winners for the goblin case, round 2 (results/goblin/iter1/intermediate).
-  const PIPE_WIN = [2, 3, 2, 3, 2, 2, 2];
-  function scriptGrid(grid, opts) {
-    // explicit placement so overlays (the clip-6 ring) can share grid cells
-    const at = (r, c) => `grid-row:${r + 1};grid-column:${c + 1};`;
-    grid.append(el("span", { style: at(0, 0) }), ...COLS.map((c, k) => el("span", { class: "hd", style: at(0, k + 1), text: c })));
-    [1, 2, 3].forEach(r => {
-      grid.append(el("span", { class: "rl a", style: `${at(r, 0)}--d:${opts.row(r)}s`, text: `Script ${r}` }));
-      COLS.forEach((_, c) => {
-        const cell = el("div", { class: `cell r${r} a`, style: `${at(r, c + 1)}--d:${opts.row(r) + 0.1 + c * 0.08}s` });
-        opts.cell?.(cell, r, c);
-        grid.append(cell);
-      });
-    });
-  }
-  function bestRow(row, wins, d0, step, withLabel) {
-    if (withLabel) row.append(el("span", { class: "rl a", style: `--d:${d0}s`, text: "Best" }));
-    wins.forEach((r, c) => row.append(el("div", { class: `cell r${r} a pop`, style: `--d:${d0 + c * step}s` }, el("span", { class: "src", text: `S${r}` }))));
-  }
-  scriptGrid(document.getElementById("pipe-sgrid"), {
-    row: r => 0.6 + (r - 1) * 0.6,
-    cell: (cell, r, c) => { if (PIPE_WIN[c] === r) { cell.classList.add("win"); cell.style.setProperty("--d2", `${3.6 + c * 0.4}s`); } },
-  });
-  const pipeBest = document.getElementById("pipe-best");
-  pipeBest.style.gridTemplateColumns = "74px repeat(7, minmax(0, 1fr))";
-  bestRow(pipeBest, PIPE_WIN, 3.8, 0.4, true);
-  const pipeBest2 = document.getElementById("pipe-best2");
-  PIPE_WIN.forEach(r => pipeBest2.append(el("div", { class: `cell r${r}` })));
-
-  // Script-selection figure: which candidate wins each column (from the paper figure).
   const SS_WIN = [1, 2, 1, 3, 1, 3, 2];
-  scriptGrid(document.getElementById("ss-grid"), {
-    row: r => 0.2 + (r - 1) * 0.35,
-    cell: (cell, r, c) => { if (SS_WIN[c] === r) cell.classList.add("pick"); },
+  const ssGrid = document.getElementById("ss-grid");
+  const at = (r, c) => `grid-row:${r + 1};grid-column:${c + 1};`;
+  ssGrid.append(el("span", { style: at(0, 0) }), ...COLS.map((c, k) => el("span", { class: "hd" + (k === 6 ? " col6" : ""), style: at(0, k + 1), text: c })));
+  [1, 2, 3].forEach(r => {
+    const d = 0.2 + (r - 1) * 0.35;
+    ssGrid.append(el("span", { class: "rl a", style: `${at(r, 0)}--d:${d}s`, text: `Script ${r}` }));
+    COLS.forEach((_, c) => ssGrid.append(el("div", { class: `cell r${r} a${SS_WIN[c] === r ? " pick" : ""}${c === 6 ? " col6" : ""}`, style: `${at(r, c + 1)}--d:${d + 0.1 + c * 0.08}s` })));
   });
-  document.getElementById("ss-grid").append(el("span", { class: "c6-ring a pop", style: "--d:1.8s" }));
-  bestRow(document.getElementById("ss-best"), SS_WIN, 0.3, 0.18, false);
-
+  ssGrid.append(el("span", { class: "c6-ring" }));
+  SS_WIN.forEach((r, c) => document.getElementById("ss-best").append(el("div", { class: `cell r${r} a pop`, style: `--d:${1.3 + c * 0.15}s` }, el("span", { class: "src", text: `S${r}` }))));
+  // How far the clip-6 column slides left in step 2: from its own column to the first data column.
+  const ssRoot = document.getElementById("ss");
+  const hds = ssGrid.querySelectorAll(".hd");
+  const ssLeft = ssRoot.querySelector(".ss-left"), bub = ssRoot.querySelector(".bub");
+  const ssMeasure = () => {
+    ssGrid.style.setProperty("--c6shift", (ssGrid.querySelector(".rl").offsetLeft - hds[6].offsetLeft) + "px");
+    // the bubble overlays the grid; reserve room so the player height never changes between steps
+    ssLeft.style.minHeight = "";
+    if (bub.offsetHeight > ssLeft.offsetHeight) ssLeft.style.minHeight = bub.offsetHeight + "px";
+    // the grid is centred in that height; the bubble starts at the top of .ss-left (offsets are relative to it)
+    const anchor = ssRoot.querySelector(".ss-bubble");
+    bub.style.setProperty("--bub-top", -anchor.offsetTop + "px");
+    // start the bubble 18px right of where the clip-6 frame ends after sliding (frame sticks out 5px)
+    const labelLeft = ssGrid.querySelector(".rl").offsetLeft, c6w = hds[6].offsetWidth;
+    bub.style.setProperty("--bub-left", (labelLeft + c6w + 5 + 18 - anchor.offsetLeft) + "px");
+    // tail points at the middle clip-6 cell (script 2 row)
+    const mid = ssGrid.querySelectorAll(".cell.col6")[1];
+    bub.style.setProperty("--tail-y", (mid.offsetTop + mid.offsetHeight / 2) + "px");
+  };
+  new ResizeObserver(ssMeasure).observe(ssGrid);
+  new ResizeObserver(ssMeasure).observe(bub);
   makePlayer(document.getElementById("pipe"), false);
-  makePlayer(document.getElementById("ss"), true);
+  makePlayer(ssRoot, true);
 
   // ---------- Comparison tabs ----------
+  // Best arrangement of pages (in reading order, split into rows) inside a W x H box: returns the
+  // placed rectangles and the area they cover.
+  function packPages(ratios, W, H, gap = 10) {
+    const n = ratios.length;
+    let best = null;
+    for (let mask = 0; mask < 1 << (n - 1); mask++) {
+      const rows = [[0]];
+      for (let i = 1; i < n; i++) (mask >> (i - 1)) & 1 ? rows.push([i]) : rows.at(-1).push(i);
+      // each row at the height that fills W, then everything scaled down to fit H
+      let hs = rows.map(r => (W - gap * (r.length - 1)) / r.reduce((t, i) => t + ratios[i], 0));
+      const total = hs.reduce((a, b) => a + b, 0) + gap * (rows.length - 1);
+      const k = Math.min(1, (H - gap * (rows.length - 1)) / (total - gap * (rows.length - 1)));
+      hs = hs.map(h => h * k);
+      const area = rows.reduce((t, r, j) => t + r.reduce((u, i) => u + ratios[i] * hs[j] * hs[j], 0), 0);
+      if (!best || area > best.area) best = { rows, hs, area };
+    }
+    const usedH = best.hs.reduce((a, b) => a + b, 0) + gap * (best.rows.length - 1);
+    let y = Math.max(0, (H - usedH) / 2);
+    const rects = [];
+    best.rows.forEach((r, j) => {
+      const h = best.hs[j], rowW = r.reduce((t, i) => t + ratios[i] * h, 0) + gap * (r.length - 1);
+      let x = (W - rowW) / 2;
+      r.forEach(i => { rects[i] = { x, y, w: ratios[i] * h, h }; x += ratios[i] * h + gap; });
+      y += h + gap;
+    });
+    return { rects, area: best.area };
+  }
   const tabs = document.getElementById("scene-tabs"), view = document.getElementById("scene-view");
+  let sceneIdx = 0;
+  // Size the manga column so its pages fill the height of the 2x2 video grid (or, stacked on narrow
+  // screens, a band above it), then place the pages.
+  function layoutScene() {
+    const lay = view.querySelector(".scene-layout"); if (!lay) return;
+    const thumbs = [...lay.querySelectorAll(".page-thumb")], imgs = thumbs.map(t => t.querySelector("img"));
+    if (imgs.some(i => !i.naturalWidth)) return;
+    const ratios = imgs.map(i => i.naturalWidth / i.naturalHeight);
+    const cs = getComputedStyle(lay), C = lay.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const pagesEl = lay.querySelector(".pages");
+    let S, H, placed;
+    if (innerWidth <= 900) {
+      S = C; H = Math.min(360, C * 0.75);
+      placed = packPages(ratios, S, H);
+      H = Math.max(...placed.rects.map(r => r.y + r.h)) - Math.min(...placed.rects.map(r => r.y));
+      placed = packPages(ratios, S, H);
+    } else {
+      const gridH = V => (V - 14) / 2 * 9 / 16 * 2 + 14;
+      let cands = [];
+      for (let f = 0.18; f <= 0.46; f += 0.01) {
+        const s = C * f, h = gridH(C - 18 - s), p = packPages(ratios, s, h);
+        cands.push({ s, h, p, fill: p.area / (s * h) });
+      }
+      // the narrowest column that is nearly as full as the best one keeps the videos large
+      const top = Math.max(...cands.map(c => c.fill));
+      const pick = cands.find(c => c.fill >= top - 0.06);
+      S = pick.s; H = pick.h; placed = pick.p;
+    }
+    lay.style.setProperty("--src-w", S + "px");
+    pagesEl.style.setProperty("--src-h", H + "px");
+    thumbs.forEach((t, i) => { const r = placed.rects[i]; Object.assign(t.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" }); });
+  }
+  new ResizeObserver(layoutScene).observe(view);
   function showScene(idx) {
+    sceneIdx = idx;
     const id = SCENES[idx], c = CASES[id];
     tabs.querySelectorAll(".tab").forEach((t, i) => t.setAttribute("aria-selected", String(i === idx)));
     view.querySelectorAll("video").forEach(v => { io.unobserve(v); v.pause(); });
-    const vids = METHODS.map(([m, name]) =>
-      el("div", { class: "vcell" + (m === "ours" ? " ours" : "") }, [
-        el("div", { class: "frame" }, video(`${VID}${id}/${m}.mp4`, true)),
-        el("p", { class: "label", text: name }),
-      ]));
-    const restart = el("button", { class: "ghost", type: "button", text: "Restart all four" });
-    const thumbs = el("div", { class: `pages n${c.pages.length}` }, c.pages.map((p, i) =>
-      el("button", { class: "page-thumb", type: "button", "aria-label": `Open the input manga of scene ${idx + 1}` },
-        el("img", { src: IMG + p, alt: `Scene ${idx + 1}, source page ${i + 1}` }))));
+    const vids = METHODS.map(([m, name]) => {
+      const v = video(`${VID}${id}/${m}.mp4`, true);
+      v.poster = `${VID}${id}/${m === "ours" ? "poster" : m}.jpg`;
+      return el("div", { class: "vcell" + (m === "ours" ? " ours" : "") }, [el("div", { class: "frame" }, v), el("p", { class: "label", text: name })]);
+    });
+    const thumbs = el("div", { class: "pages" }, c.pages.map((p, i) => {
+      const im = el("img", { src: IMG + p, alt: `Scene ${idx + 1}, source page ${i + 1}` });
+      im.addEventListener("load", layoutScene);
+      return el("button", { class: "page-thumb", type: "button", "aria-label": `Open the input manga of scene ${idx + 1}` }, im);
+    }));
     thumbs.addEventListener("click", e => { if (e.target.closest(".page-thumb")) openPages(`Scene ${idx + 1}: input manga`, c.pages); });
     view.replaceChildren(el("div", { class: "scene-layout", role: "tabpanel" }, [
-      el("div", { class: "source" }, thumbs),
-      el("div", {}, [el("div", { class: "scene-tools" }, restart), el("div", { class: "vgrid" }, vids)]),
+      el("div", { class: "source" }, [el("p", { class: "col-label", text: "Input manga" }), thumbs]),
+      el("div", {}, [el("p", { class: "col-label", text: "Generated animation" }), el("div", { class: "vgrid" }, vids)]),
     ]));
-    restart.addEventListener("click", () => view.querySelectorAll("video").forEach(v => { v.currentTime = 0; v.play().catch(() => {}); }));
+    layoutScene();
     watch(view);
   }
+  document.getElementById("scene-restart").addEventListener("click", () => view.querySelectorAll("video").forEach(v => { v.currentTime = 0; v.play().catch(() => {}); }));
   SCENES.forEach((id, i) => {
     const t = el("button", { class: "tab", type: "button", role: "tab" }, `Scene ${i + 1}`);
     t.addEventListener("click", () => showScene(i));
