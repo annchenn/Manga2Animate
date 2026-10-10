@@ -23,8 +23,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/teaser_dark.png">
-    <img src="assets/teaser.jpg" width="100%" alt="Manga2Animate teaser">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/teaser_dark.webp">
+    <img src="assets/teaser.webp" width="100%" alt="Manga2Animate teaser">
   </picture>
 </p>
 
