@@ -4,7 +4,20 @@
 </h1>
 
 <p align="center">
-  <b>Turning existing manga pages into coherent animation that stays faithful to the original manga</b>
+  <b>An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</b>
+</p>
+
+<p align="center">
+  Sheng-Wei Zhang<sup>*</sup>, Hsi-An Chen<sup>*</sup>, Yan-Ting Liou<sup>*</sup>, Chih-Hsuan Chen, Shih-Chen Tseng, Yu-Lun Liu<br>
+  National Yang Ming Chiao Tung University<br>
+  <sup>*</sup>Equal contribution
+</p>
+
+<p align="center">
+  <!-- TODO: link the arXiv paper once it is posted -->
+  <img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b.svg" alt="arXiv (coming soon)">
+  <a href="https://manga2animate.vercel.app"><img src="https://img.shields.io/badge/Project-Page-blue.svg" alt="Project Page"></a>
+  <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing"><img src="https://img.shields.io/badge/Evaluation-Data-green.svg" alt="Evaluation Data"></a>
 </p>
 
 
@@ -31,6 +44,7 @@ from them.
 - [Evaluation](#evaluation)
 - [Configuration](#configuration)
 - [Acknowledgement](#acknowledgement)
+- [Citation](#citation)
 
 ## Repository Structure
 
@@ -259,3 +273,13 @@ This project builds on
 [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) and
 [Index-AniSora](https://github.com/bilibili/Index-anisora) as open generation
 models, and uses manga from [Manga109](http://www.manga109.org/).
+
+## Citation
+
+```bibtex
+@misc{manga2animate2026,
+  title={{Manga2Animate}: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning},
+  author={Sheng-Wei Zhang and Hsi-An Chen and Yan-Ting Liou and Chih-Hsuan Chen and Shih-Chen Tseng and Yu-Lun Liu},
+  year={2026}
+}
+```
