@@ -1,35 +1,45 @@
 <h1 align="center">
-  <img src="assets/logo.png" width="32" alt="icon" style="vertical-align: middle;">
-  Manga2Animate
+  <img src="assets/logo.png" width="40" alt="logo" style="vertical-align: middle;">
+  Manga2Animate: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning
 </h1>
 
 <p align="center">
-  <b>An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning</b>
+  <a href="https://github.com/bbbguji">Sheng-Wei Zhang</a><sup>*</sup> ·
+  <a href="https://www.linkedin.com/in/annchen1234/">Hsi-An Chen</a><sup>*</sup> ·
+  <a href="https://github.com/timidtimmm">Yan-Ting Liou</a><sup>*</sup> ·
+  <a href="https://www.linkedin.com/in/chchen825/">Chih-Hsuan Chen</a> ·
+  <a href="https://www.linkedin.com/in/%E5%A3%AB%E7%8F%8D-%E6%9B%BE-125166331/">Shih-Chen Tseng</a> ·
+  <a href="https://yulunalexliu.github.io/">Yu-Lun Liu</a>
+  <br>
+  National Yang Ming Chiao Tung University · <sup>*</sup>Equal contribution
 </p>
 
-<p align="center">
-  Sheng-Wei Zhang<sup>*</sup>, Hsi-An Chen<sup>*</sup>, Yan-Ting Liou<sup>*</sup>, Chih-Hsuan Chen, Shih-Chen Tseng, Yu-Lun Liu<br>
-  National Yang Ming Chiao Tung University<br>
-  <sup>*</sup>Equal contribution
-</p>
-
-<p align="center">
+<h3 align="center">
   <!-- TODO: link the arXiv paper once it is posted -->
-  <img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b.svg" alt="arXiv (coming soon)">
-  <a href="https://manga2animate.vercel.app"><img src="https://img.shields.io/badge/Project-Page-blue.svg" alt="Project Page"></a>
-  <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing"><img src="https://img.shields.io/badge/Evaluation-Data-green.svg" alt="Evaluation Data"></a>
-</p>
-
+  🌐 <a href="https://manga2animate.vercel.app">Project Page</a> |
+  📄 Paper (coming soon) |
+  📁 <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing">Evaluation Data</a>
+</h3>
 
 <p align="center">
-  <img src="assets/teaser.jpg" width="100%" alt="Manga2Animate teaser">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/teaser_dark.png">
+    <img src="assets/teaser.jpg" width="100%" alt="Manga2Animate teaser">
+  </picture>
 </p>
 
-Given a few manga pages and a character reference image, Manga2Animate's
-multi-agent creator-reviewer framework builds an animation script and a visual
-storyboard, with one script clip, one storyboard panel and one video clip per
-manga panel, refines both over two rounds, and then generates the animation
-from them.
+**TL;DR** Manga2Animate turns a few manga pages and a character reference
+into an animation that stays faithful to the source manga.
+
+Feeding manga pages straight into a video model often misreads the panel
+layout and gets the story wrong, while working from text alone loses the
+characters and art style. Manga2Animate follows real animation production
+instead: it first writes an **animation script**, then draws a **visual
+storyboard**, and only then generates the video. Each step is produced by a
+creator agent and checked against the source panels by a reviewer agent, and
+both the script and the storyboard are refined over two rounds of feedback.
+In experiments and a user study, the resulting animations are more faithful to
+the manga and more consistent across shots than prior methods.
 
 ## Table of Contents
 
