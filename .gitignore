@@ -69,6 +69,7 @@ __pycache__/
 *.bin
 # ...except the result videos the project page shows
 !/project_page/static/videos/**/*.mp4
+!/project_page/static/method/**/*.mp4
 
 # run_bench.sh keeps a .bak of every reference image it converts to jpg
 *.bak
