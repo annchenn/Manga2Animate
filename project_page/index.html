@@ -55,8 +55,8 @@
   .wrap { max-width: 1180px; margin: 0 auto; }
   /* Generated clips loop faintly behind the page, tiled like panels on a manga page. */
   .bg {
-    position: absolute; inset: 0 0 auto 0; height: min(1000px, 100vh + 120px); z-index: -1; overflow: hidden; pointer-events: none;
-    -webkit-mask-image: linear-gradient(#000 45%, transparent); mask-image: linear-gradient(#000 45%, transparent);
+    position: absolute; inset: 0 0 auto 0; height: min(1000px, 100vh + 120px); z-index: -1; overflow: hidden; pointer-events: none;  /* height is set to the top of #abstract by script */
+    -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent);
   }
   .bg video, .bg img { width: 100%; height: 100%; object-fit: cover; opacity: .2; filter: saturate(.85); }
   .bg::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(246, 248, 251, .7), rgba(246, 248, 251, .15) 70%); }
@@ -129,6 +129,8 @@
   }
   .cut { font-family: var(--font-display); font-size: 1.25rem; line-height: 1; letter-spacing: 0.02em; }
   .cut .of { color: var(--muted); font-size: 0.8em; }
+  .manga-title { font-weight: 700; font-size: 1.02rem; padding-left: 14px; border-left: 2px solid var(--rule); }
+  .manga-title .jp { color: var(--muted); font-weight: 600; margin-left: 8px; }
   .sheet-bar .note { font-size: 0.95rem; font-weight: 700; color: var(--blue-deep); background: var(--blue-soft); border-radius: 999px; padding: 1px 12px; }
   .sheet-bar .spacer { flex: 1; }
   .nav-btn {
@@ -138,7 +140,7 @@
   .nav-btn:hover { background: var(--blue-soft); }
   .nav-btn svg { width: 18px; height: 18px; }
   .sheet-body {
-    display: grid; grid-template-columns: minmax(0, 0.95fr) 56px minmax(0, 1.9fr);
+    display: grid; grid-template-columns: minmax(0, 0.6fr) 56px minmax(0, 1.9fr);
     align-items: stretch; padding: 18px;
     background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
     background-size: 28px 28px; background-position: -1px -1px;
@@ -158,16 +160,17 @@
   .screen { position: relative; border: 2px solid var(--ink); background: #11141b; aspect-ratio: 16 / 9; }
   .screen video { width: 100%; height: 100%; object-fit: contain; transition: opacity .35s ease; }
   .screen video.swap { opacity: 0; }
-  .reel { display: flex; gap: 12px; margin: 20px 0 0; overflow-x: auto; padding: 4px 8px 8px; scrollbar-width: thin; }
-  .reel > :first-child { margin-left: auto; } .reel > :last-child { margin-right: auto; }
+  .reel { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 20px 0 0; padding: 4px 8px 8px; }
   .reel button {
-    flex: none; width: 136px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid var(--rule); border-radius: 4px;
+    flex: none; width: 108px; aspect-ratio: 16 / 9; padding: 0; border: 2px solid var(--rule); border-radius: 4px;
     background: #11141b center / cover no-repeat; cursor: pointer; opacity: .62; position: relative;
-    transition: opacity .2s ease, border-color .2s ease, transform .2s ease;
+    transition: opacity .2s ease, border-color .2s ease, transform .2s ease, width .2s ease;
   }
   .reel button span { position: absolute; left: 4px; bottom: 2px; font-family: var(--font-display); font-size: .7rem; color: #fff; text-shadow: 0 1px 2px #000; }
   .reel button:hover { opacity: 1; }
-  .reel button[aria-current="true"] { opacity: 1; border-color: var(--ink); box-shadow: 3px 3px 0 var(--blue); transform: translateY(-2px); }
+  .reel button[data-pos="hidden"] { display: none; }
+  .reel button[data-pos="past"], .reel button[data-pos="near"] { width: 84px; opacity: .5; }
+  .reel button[aria-current="true"] { width: 160px; opacity: 1; border-color: var(--ink); box-shadow: 3px 3px 0 var(--blue); transform: translateY(-2px); }
   @media (max-width: 820px) {
     .sheet-body { grid-template-columns: 1fr; gap: 6px; padding: 14px; }
     .deck { flex: none; min-height: 0; aspect-ratio: var(--deck-ar, 1.2); max-height: 440px; }
@@ -579,6 +582,7 @@
     <div class="sheet">
       <div class="sheet-bar">
         <span class="cut" id="t-cut"></span>
+        <span class="manga-title" id="t-title"></span>
         <span class="note" id="t-note" hidden></span>
         <span class="spacer"></span>
         <button class="nav-btn" type="button" id="t-prev" aria-label="Previous case"><svg><use href="#i-prev"/></svg></button>
@@ -730,19 +734,27 @@
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   // id -> source manga pages (from the supplementary material)
   const CASES = {
-    "goblin":           { pages: ["goblin_manga_1.jpg", "goblin_manga_2.jpg", "goblin_manga_3.jpg"] },
+    "goblin":           { pages: ["goblin_manga_1.jpg", "goblin_manga_2.jpg", "goblin_manga_3.jpg"], title: "The Great Sage Ryddel and the Hands of Time", jp: "大賢者リドルの時間逆行" },
     "elf":              { pages: ["elf_manga.jpg"] },
     "lovehina":         { pages: ["lovehina_manga.jpg"] },
-    "elf3":             { pages: ["elf3_manga.jpg"] },
-    "baseball":         { pages: ["baseball_manga_1.jpg", "baseball_manga_2.jpg", "baseball_manga_3.jpg"] },
-    "trigger":          { pages: ["trigger_manga_1.jpg", "trigger_manga_2.jpg"] },
+    "elf3":             { pages: ["elf3_manga.jpg"], title: "Welcome to Japan, Ms. Elf!", jp: "日本へようこそエルフさん。" },
+    "baseball":         { pages: ["baseball_manga_1.jpg", "baseball_manga_2.jpg", "baseball_manga_3.jpg"], title: "Ace of Diamond", jp: "ダイヤのA" },
+    "trigger":          { pages: ["trigger_manga_1.jpg", "trigger_manga_2.jpg"], title: "World Trigger", jp: "ワールドトリガー" },
     "dualjustice1":     { pages: ["dualjustice1_manga_1.jpg", "dualjustice1_manga_2.jpg"] },
     "dualjustice-kick": { pages: ["dualjustice-kick_manga_1.jpg", "dualjustice-kick_manga_2.jpg"] },
     "dualjustice2":     { pages: ["dualjustice2_manga_1.jpg", "dualjustice2_manga_2.jpg"], note: "open-source image and video generators" },
+    "paradon":          { pages: ["paradon_manga_1.jpg"], title: "Paradon", jp: "パラドン" },
+    "lovehina_vol01":   { pages: ["lovehina_vol01_manga_1.jpg", "lovehina_vol01_manga_2.jpg"], title: "Love Hina", jp: "ラブひな" },
+    "rent-a-girlfriend":{ pages: ["rent-a-girlfriend_manga_1.jpg"], title: "Rent-A-Girlfriend", jp: "彼女、お借りします" },
+    "iseoji":           { pages: ["iseoji_manga_1.jpg"], title: "Uncle from Another World", jp: "異世界おじさん" },
+    "slap-shot-girls":  { pages: ["slap-shot-girls_manga_1.jpg", "slap-shot-girls_manga_2.jpg"], title: "Slap Shot Girls", jp: "スラップショットガールズ" },
+    "tadaima":          { pages: [], title: "Tadaima, Ojamashimasu", jp: "ただいま、おじゃまします" },  // TODO: source pages not on this machine yet (results came from yatliou0423)
+    "burari":           { pages: ["burari_manga_1.jpg", "burari_manga_2.jpg"], title: "Burari Tessen Torimonocho", jp: "ぶらり鉄扇捕物帳" },
+    "hakura-refrain":   { pages: ["hakura-refrain_manga_1.jpg", "hakura-refrain_manga_2.jpg"], title: "Haruka Refrain", jp: "はるかリフレイン" },
   };
-  // Teaser order (the four paper teaser cases for now; ten planned). Each id needs CASES[id].pages,
+  // Teaser order (see memo.md, "project page"). Each id needs CASES[id].pages,
   // static/videos/<id>/ours.mp4 and poster.jpg.
-  const TEASER = ["goblin", "elf3", "baseball", "trigger"];
+  const TEASER = ["goblin", "baseball", "trigger", "elf3", "paradon", "lovehina_vol01", "rent-a-girlfriend", "iseoji", "slap-shot-girls", "tadaima", "burari", "hakura-refrain"];
   const SCENES = ["goblin", "elf", "lovehina", "elf3"];
   const METHODS = [["ours", "Ours"], ["animaker", "AniMaker"], ["vimax", "ViMax"], ["storymem", "StoryMem"]];
 
@@ -790,6 +802,10 @@
 
   const bgVideo = document.getElementById("bg-video");
   if (!reduced) bgVideo.play().catch(() => {});
+  // the mosaic runs from the top of the page down to the abstract
+  const bgBox = document.querySelector(".bg"), abstractSec = document.getElementById("abstract");
+  const sizeBg = () => { bgBox.style.height = Math.round(abstractSec.getBoundingClientRect().top + scrollY) + "px"; };
+  sizeBg(); addEventListener("resize", sizeBg); addEventListener("load", sizeBg);
 
   // ---------- Viewer ----------
   const dlg = document.getElementById("viewer"), dlgBody = document.getElementById("viewer-body"), dlgTitle = document.getElementById("viewer-title");
@@ -820,7 +836,7 @@
 
   // ---------- Teaser ----------
   const tVideo = document.getElementById("t-video"), tDeck = document.getElementById("t-deck"),
-        tCut = document.getElementById("t-cut"), tNote = document.getElementById("t-note"), tReel = document.getElementById("t-reel");
+        tCut = document.getElementById("t-cut"), tTitle = document.getElementById("t-title"), tNote = document.getElementById("t-note"), tReel = document.getElementById("t-reel");
   let tIdx = 0;
   // Fan the pages across the deck: as tall as the deck allows, overlapping only when they do not fit side by side.
   const tBody = document.querySelector(".teaser .sheet-body");
@@ -829,8 +845,8 @@
     if (!imgs.length || imgs.some(i => !i.naturalWidth)) return;
     // width the pages need at the video's height (fanned pages may overlap by ~40%), as a share of the video column
     const rs = imgs.map(i => i.naturalWidth / i.naturalHeight);
-    const rEff = Math.max(...rs, rs.reduce((a, b) => a + b, 0) * (rs.length > 1 ? 0.62 : 1));
-    const cols = `minmax(0, ${Math.min(1, Math.max(0.34, rEff * 9 / 16)).toFixed(3)}fr) 56px minmax(0, 1fr)`;
+    const rEff = Math.max(...rs, rs.reduce((a, b) => a + b, 0) * (rs.length > 1 ? 0.5 : 1));
+    const cols = `minmax(0, ${Math.min(0.6, Math.max(0.3, rEff * 9 / 16)).toFixed(3)}fr) 56px minmax(0, 1fr)`;
     if (innerWidth > 820) { if (tBody.style.gridTemplateColumns !== cols) tBody.style.gridTemplateColumns = cols; }
     else tBody.style.gridTemplateColumns = "";
     tDeck.style.setProperty("--deck-ar", Math.min(1.8, Math.max(0.9, rEff)).toFixed(3));
@@ -855,6 +871,7 @@
     const id = TEASER[tIdx], c = CASES[id];
     tCut.innerHTML = `Case ${pad(tIdx + 1)} <span class="of">/ ${pad(TEASER.length)}</span>`;
     tNote.hidden = !c.note; tNote.textContent = c.note || "";
+    tTitle.replaceChildren(c.title || "", c.jp ? el("span", { class: "jp", text: c.jp }) : null);
     tDeck.replaceChildren(...c.pages.map((p, k) => {
       const im = el("img", { src: IMG + p, alt: `Source manga page ${k + 1}` });
       im.addEventListener("load", layoutDeck);
@@ -867,10 +884,12 @@
       tVideo.play().catch(() => {});
       tVideo.classList.remove("swap");
     }, reduced ? 0 : 180);
-    tReel.querySelectorAll("button").forEach((b, k) => b.setAttribute("aria-current", String(k === tIdx)));
-    // scroll only the reel, never the page
-    const btn = tReel.children[tIdx];
-    if (btn) tReel.scrollTo({ left: btn.offsetLeft - (tReel.clientWidth - btn.offsetWidth) / 2, behavior: reduced ? "auto" : "smooth" });
+    // show four thumbnails: the one just passed (small), the current one (large) and the next two
+    const first = Math.max(0, Math.min(tIdx - 1, TEASER.length - 4));
+    tReel.querySelectorAll("button").forEach((b, k) => {
+      b.setAttribute("aria-current", String(k === tIdx));
+      b.dataset.pos = k < first || k >= first + 4 ? "hidden" : k < tIdx ? "past" : "near";
+    });
   }
   TEASER.forEach((id, i) => {
     const b = el("button", { type: "button", "aria-label": `Case ${i + 1}`, style: `background-image:url(${VID}${id}/poster.jpg)` }, el("span", { text: pad(i + 1) }));
