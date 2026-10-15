@@ -1,30 +1,40 @@
 # Open-source backends
 
 The pipeline can run fully on open models: FLUX.2-dev for the storyboard and
-MiniMax-H3 or Index-AniSora for the video. The pipeline side (prompt building,
-candidate generation, review) lives in `src/`; this folder holds what has to be
-set up outside it, since each model needs its own conda env.
+MiniMax-H3 or Index-AniSora for the video. Each needs its own conda env, so this
+folder holds both the out-of-band setup and — for flux2 — the backend code itself;
+`src/` keeps only a thin dispatch into it.
 
 | stage | selected with | model | how the pipeline reaches it |
 |---|---|---|---|
-| storyboard | `run_all.py --storyboard-backend flux2` | FLUX.2-dev | `src/flux2_bridge.py` runs `src/flux2_worker.py` in the `sb_diffusers` env |
+| storyboard | `run_all.py --storyboard-backend flux2` | FLUX.2-dev | `flux2/bridge.py` runs `flux2/worker.py` in the `sb_diffusers` env ([details](flux2/README.md)) |
 | video | `create_video.py -m minimax-local` | MiniMax-H3 (Ref2VA), reference-conditioned | HTTP to a running SGLang server (`minimax_h3/serve.sh`) |
 | video | `create_video.py -m anisora` | Index-AniSora V3.2, first-frame (per panel) | runs upstream `generate_txt_new.py` in its own conda env |
 
 ## FLUX.2-dev storyboard (`--storyboard-backend flux2`)
 
 ```bash
-bash opensource_backends/flux2/setup_env.sh
+bash opensource_backends/flux2/setup_env.sh      # once
+bash opensource_backends/flux2/verify_setup.sh   # env + conda + weights + GPU
 python src/run_all.py -t <target> --storyboard-backend flux2
 ```
 
 `setup_env.sh` creates the `sb_diffusers` env with pinned versions (diffusers
 0.39, torch 2.13, transformers 5.15), kept apart from the main env because MAGI
-pins `transformers==4.38.0`. FLUX.2-dev is a gated HuggingFace repo: accept its
-license first and provide a token (`HF_TOKEN`, or a token file at
-`FLUX2_HF_TOKEN_FILE`). Weights (~95GB) download to the HF cache on the first
-run. GPU requirements and the `FLUX2_*` settings are in the main README,
-section "FLUX.2 storyboard backend".
+pins `transformers==4.38.0` — that conflict is why the backend talks to its model
+through a subprocess rather than an import.
+
+FLUX.2-dev is a gated HuggingFace repo: accept its license first and provide a
+token (`HF_TOKEN`, or a token file at `FLUX2_HF_TOKEN_FILE`). Only the component
+folders are needed (~105GB); excluding the repo's two root single-file checkpoints
+saves ~65GB. Point `FLUX2_HF_HOME` at the cache.
+
+It needs most of a 97GB-class GPU, and a co-tenant process on that card is the
+most common cause of failure — set `FLUX2_CUDA_DEVICE` to an idle one.
+
+**[`flux2/README.md`](flux2/README.md)** has the execution modes
+(`resident` vs `cpu_offload`), the full `FLUX2_*` table, the metrics written per
+run, and troubleshooting.
 
 ## Video model weights
 

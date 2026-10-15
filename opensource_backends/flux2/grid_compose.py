@@ -1,7 +1,9 @@
 """
 Composes N per-panel images into a labeled grid (numbered caption "1".."N" below
-each cell). Default cell_size
-matches FLUX2_PANEL_WIDTH/HEIGHT (768x640), this module's only caller here.
+each cell) -- the flux2 backend's equivalent of the single 3x2 sheet the gemini
+backend gets back from the image model in one piece. Default cell_size matches
+FLUX2_PANEL_WIDTH/HEIGHT (768x640); generate_storyboard.generate_flux2() is the
+only caller.
 """
 import math
 

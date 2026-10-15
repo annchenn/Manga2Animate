@@ -134,7 +134,12 @@ def generate_flux2(best_script: dict, iteration: int) -> None:
     composition. Produces exactly one storyboard candidate (storyboard_0.png),
     unlike the gemini backend's NUM_STORYBOARDS independent whole-grid candidates."""
     from PIL import Image
-    from src import evaluate_panel_candidates, flux2_bridge, grid_compose
+
+    # Imported here rather than at module scope because the backend is optional
+    # (the gemini path must not pay for it) and because evaluate_panel_candidates
+    # resolves RESULTS_DIR eagerly at import time, which requires the run
+    # directory this function is already running inside.
+    from opensource_backends.flux2 import bridge, evaluate_panel_candidates, grid_compose
 
     character_description = json.loads(
         (RESULTS_DIR / "character" / "character_description.json").read_text(encoding="utf-8")
@@ -143,7 +148,7 @@ def generate_flux2(best_script: dict, iteration: int) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     step("Generating per-panel candidates (flux2)")
-    flux2_bridge.generate_candidates(
+    bridge.generate_candidates(
         best_script, character_description, TARGET_DIR, TARGET_DIR / "manga_panels", out_dir
     )
 
@@ -157,7 +162,7 @@ def generate_flux2(best_script: dict, iteration: int) -> None:
     panel_ids = sorted(c["id"] for c in best_script["clips"])
     panels = [Image.open(selected_dir / f"panel{pid}.png").convert("RGB") for pid in panel_ids]
     grid = grid_compose.compose_grid(
-        panels, columns=3, cell_size=(flux2_bridge.FLUX2_PANEL_WIDTH, flux2_bridge.FLUX2_PANEL_HEIGHT)
+        panels, columns=3, cell_size=(bridge.FLUX2_PANEL_WIDTH, bridge.FLUX2_PANEL_HEIGHT)
     )
     out_path = out_dir / "storyboard_0.png"
     grid.save(out_path)

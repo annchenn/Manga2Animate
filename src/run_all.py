@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -121,6 +122,7 @@ os.environ["STORYBOARD_BACKEND"] = STORYBOARD_BACKEND
 init_log_file(RUN_DIR / "log.txt")
 
 # Import modules AFTER setting TARGET so module-level paths resolve correctly.
+from src import metrics
 import src.magi as magi
 import src.create_character_description as create_character_description
 import src.create_script as create_script
@@ -287,13 +289,32 @@ def record_run_config() -> None:
         warn(f"Could not write run config: {e}")
 
 
+def _metric_key(stage_name: str) -> str:
+    """Short, stable key for metrics.json from a display stage name.
+
+    "ITER 0  ·  create_script mode = without" -> "iter0.create_script"
+    "STAGE 0  ·  MAGI transcript"             -> "magi_transcript"
+    Display names carry run-specific detail (the mode) and decorative separators;
+    metrics keys need to be comparable across runs and targets.
+    """
+    parts = [p.strip() for p in stage_name.split("·")]
+    tail = parts[-1] if parts else stage_name
+    tail = tail.split(" mode = ")[0].strip()
+    tail = re.sub(r"[^0-9A-Za-z]+", "_", tail).strip("_").lower()
+    m = re.match(r"ITER\s+(\d+)", parts[0]) if parts else None
+    return f"iter{m.group(1)}.{tail}" if m else tail
+
+
 def run_stage(stage_name: str, done_fn, action):
+    key = _metric_key(stage_name)
     if args.auto_resume and done_fn():
         success(f"{stage_name} already complete — skipping")
+        metrics.mark_skipped(key)
         return
 
     section(stage_name)
-    action()
+    with metrics.stage(key):
+        action()
 
     if args.auto_resume and not done_fn():
         raise RuntimeError(
@@ -325,7 +346,7 @@ def run_iteration(iteration: int, mode: str):
     )
 
 
-def main():
+def _run_pipeline():
     rule(
         f"[bold cyan]Manga → Storyboard pipeline  ·  "
         f"target=[white]{args.target}[/]  ·  run=[white]{RUN_ID}[/]  ·  "
@@ -363,6 +384,27 @@ def main():
 
     section("Pipeline complete")
     success(f"All iteration(s) through iter{FINAL_ITER} finished.")
+
+
+def main():
+    """Run the pipeline, always leaving metrics.json behind.
+
+    The write is in a finally block on purpose: a run that crashed partway (or was
+    stopped after an early-return resume check) is exactly when the per-stage
+    timings and the Gemini call count are most worth having.
+    """
+    try:
+        _run_pipeline()
+    finally:
+        try:
+            path = metrics.write_metrics(RUN_DIR, target=args.target, run_id=RUN_ID)
+            m = metrics.collector()
+            info(f"Metrics: {path}  "
+                 f"(wall {m.payload()['wall_clock_s']}s, "
+                 f"{m.api_calls} Gemini API call(s) over {m.logical_calls} step(s)"
+                 + (f", {m.failures} failed" if m.failures else "") + ")")
+        except Exception as e:  # never let metrics bookkeeping mask the real outcome
+            warn(f"Could not write metrics: {e}")
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ PROMPT_FILES = {
     # same dialogue/on-screen-text tightening as "without_no_fewshot", found
     # necessary after a full test run: iter1's shared feedback prompt
     # wrote screenplay-style "Dialogue: Character[id]: '...'" lines that leaked
-    # past flux2_bridge.py's dialogue-stripping regex as dangling speaker labels,
+    # past the dialogue-stripping regexes in src/utils.py as dangling speaker labels,
     # and one clip described "sound effect katakana" as a background visual
     # element outright — both rendered as real on-screen text in the storyboard.
     "one_flux2": PROMPTS_DIR / "create_script_with_one_feedback_flux2.txt",

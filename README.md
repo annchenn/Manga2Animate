@@ -235,7 +235,8 @@ environment; setup steps and weight downloads are in
 [`opensource_backends/README.md`](opensource_backends/README.md).
 
 ```bash
-bash opensource_backends/flux2/setup_env.sh
+bash opensource_backends/flux2/setup_env.sh      # once
+bash opensource_backends/flux2/verify_setup.sh   # env + conda + weights + GPU
 python src/run_all.py -t <case> --storyboard-backend flux2
 
 bash opensource_backends/minimax_h3/serve.sh   # leave running, then in another shell:
@@ -246,6 +247,14 @@ With FLUX.2-dev, each storyboard panel is generated separately (3 variants per
 panel, conditioned on the manga panel and the character references), a Gemini
 reviewer scores each variant, and the best panels are tiled into the same 3×2
 grid as the Gemini storyboard.
+
+FLUX.2-dev needs most of a 97GB-class GPU (~105GB of weights, with the text
+encoder released after prompt encoding so transformer+VAE stay resident). On a
+shared machine set `FLUX2_CUDA_DEVICE` to an idle card — a co-tenant process on
+the same GPU is the most common cause of failure. `FLUX2_OFFLOAD_MODE=cpu_offload`
+trades speed for a smaller VRAM footprint. Every run writes `metrics.json` with
+per-stage timings and the Gemini API call count. See
+[`opensource_backends/flux2/README.md`](opensource_backends/flux2/README.md).
 
 ## Evaluation
 

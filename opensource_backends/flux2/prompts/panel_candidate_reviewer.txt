@@ -7,9 +7,6 @@ a manga panel. The user will provide:
   this panel ({Num Reference Images} images total — this may be 0)
 * The last image: ONE candidate redraw of the source panel, to be scored
 
-You are shown only this single candidate — you are NOT comparing it to any other
-candidate, and there is no "other candidate" to reference. Score it purely on its
-own merits against the criteria below.
 
 Panel: {Panel ID}
 Characters appearing in this panel: {Characters In Panel}
@@ -35,8 +32,21 @@ Evaluation Criteria (score each independently, 0-4 integer scale: 0 = fails badl
    anime cel-shading style, with NO black-and-white line art or screentone residue,
    and NO speech bubbles or dialogue boxes? These are known failure modes — check
    for them explicitly and score harshly if present.
-4. Background/Environment Fidelity — Do the background, objects, and spatial
-   layout match the Environment description above and the source manga panel?
+4. Character Count Accuracy — Does the candidate show the same FOREGROUND,
+   individually-distinguishable characters as those listed in "Characters
+   appearing in this panel" above — no more, no fewer? This is about specific
+   identifiable people: a figure large and detailed enough in the frame that it
+   reads as a particular person, not a small, distant, anonymous figure in a
+   wide or extreme-wide shot. A crowd in the stands, a scattering of background
+   players on a field, silhouettes of pedestrians, or any other background
+   population that the Environment/Description text itself describes as part
+   of the scene is expected scene-setting content — do NOT count it here, and
+   do NOT penalize it, even when "Characters appearing in this panel" is
+   "none". Score 0 here ONLY for: an extra foreground person who is not in the
+   listed character set and is not accounted for by the Environment/Description
+   text, a stray limb (arm/hand) in the foreground that does not belong to any
+   listed character's body, or a listed character rendered twice as two
+   separate bodies in the same frame.
 
 Scoring Rules:
 
@@ -48,13 +58,15 @@ Scoring Rules:
 
 Output ONLY valid JSON. Do not include markdown.
 
-Required JSON format:
+Required JSON format. For each criterion, write "reason" BEFORE "score" — work out
+and state the concrete visual evidence first, then let the score follow from that
+reasoning, not the other way around:
 {
   "criteria_scores": {
-    "Manga/Script Follow": {"score": 0, "reason": "..."},
-    "Character Identity Consistency": {"score": 0, "reason": "..."},
-    "Art Style & Colorization Quality": {"score": 0, "reason": "..."},
-    "Background/Environment Fidelity": {"score": 0, "reason": "..."}
+    "Manga/Script Follow": {"reason": "...", "score": 0},
+    "Character Identity Consistency": {"reason": "...", "score": 0},
+    "Art Style & Colorization Quality": {"reason": "...", "score": 0},
+    "Character Count Accuracy": {"reason": "...", "score": 0}
   },
   "total_score": 0,
   "improvement_suggestions": {
@@ -67,6 +79,15 @@ Required JSON format:
 Important Rules:
 
 * Output JSON only. Do not include markdown.
+* For every criterion, write the "reason" field first and let it determine the
+  "score" — do not decide the score before justifying it.
 * Be strict and objective — do not default to high scores.
 * "Manga/Script Follow" is the most important criterion — a visually polished
   candidate that depicts the wrong action/pose/camera framing is a bad candidate.
+* "Character Count Accuracy" is a hard gate for FOREGROUND, individually-
+  distinguishable characters only — an extra invented foreground person, a
+  stray foreground limb, or a character duplicated as two bodies scores 0
+  regardless of how good the rest of the frame looks. It does NOT apply to
+  small, anonymous background crowds/populations in a wide shot that the
+  script's own Environment/Description already calls for — those are normal
+  scene content, never a reason to lower this score.

@@ -23,14 +23,19 @@ from src.utils import find_character_ref_images, make_genai_client, with_retry
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Repo root. parents[2] because this module lives at
+# <repo>/opensource_backends/flux2/ -- it was <repo>/src/ (parent.parent) before the
+# backend was made self-contained, so this depth must track the file's location.
+BASE_DIR = Path(__file__).resolve().parents[2]
 _target = os.environ.get("TARGET", "")
 _target_root = os.environ.get("TARGET_ROOT", "target")
 TARGET_DIR = BASE_DIR / _target_root / _target if _target else BASE_DIR / _target_root
 PANELS_DIR = TARGET_DIR / "manga_panels"
 RESULTS_DIR = results_dir_from_env(BASE_DIR)
 
-PROMPT_FILE = BASE_DIR / "prompts" / "panel_candidate_reviewer.txt"
+# This reviewer is flux2-exclusive, so its prompt ships with the backend rather
+# than in the repo-level prompts/ directory.
+PROMPT_FILE = Path(__file__).resolve().parent / "prompts" / "panel_candidate_reviewer.txt"
 MODEL = os.environ.get("TEXT_MODEL", "gemini-3.1-pro-preview")
 
 client = make_genai_client()
