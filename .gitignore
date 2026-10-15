@@ -3,6 +3,7 @@
 
 # ---- ALLOW: repo metadata ----
 !/.gitignore
+!/.github/
 !/.env.example
 !/README.md
 !/requirements.txt
