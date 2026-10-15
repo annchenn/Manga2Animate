@@ -16,7 +16,7 @@
 
 <h3 align="center">
   <!-- TODO: link the arXiv paper once it is posted -->
-  🌐 <a href="https://manga2animate.vercel.app">Project Page</a> |
+  🌐 <a href="https://annchenn.github.io/Manga2Animate/">Project Page</a> |
   📄 Paper (coming soon) |
   📁 <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing">Evaluation Data</a>
 </h3>
