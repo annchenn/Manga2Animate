@@ -15,9 +15,8 @@
 </p>
 
 <h3 align="center">
-  <!-- TODO: link the arXiv paper once it is posted -->
   🌐 <a href="https://annchenn.github.io/Manga2Animate/">Project Page</a> |
-  📄 Paper (coming soon) |
+  📄 <a href="https://arxiv.org/abs/2610.26851">Paper</a> |
   📁 <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing">Evaluation Data</a>
 </h3>
 
@@ -299,6 +298,9 @@ models, and uses manga from [Manga109](http://www.manga109.org/).
 @misc{manga2animate2026,
   title={{Manga2Animate}: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning},
   author={Sheng-Wei Zhang and Hsi-An Chen and Yan-Ting Liou and Chih-Hsuan Chen and Shih-Chen Tseng and Yu-Lun Liu},
-  year={2026}
+  year={2026},
+  eprint={2610.26851},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV}
 }
 ```
