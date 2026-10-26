@@ -17,6 +17,7 @@
 <h3 align="center">
   🌐 <a href="https://annchenn.github.io/Manga2Animate/">Project Page</a> |
   📄 <a href="https://arxiv.org/abs/2610.26851">Paper</a> |
+  🤗 <a href="https://huggingface.co/papers/2610.26851">Hugging Face</a> |
   📁 <a href="https://drive.google.com/drive/folders/1CTwp8wCjtqUCDPo5QmUIPYL7WjWh3VCP?usp=sharing">Evaluation Data</a>
 </h3>
 
