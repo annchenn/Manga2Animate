@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="assets/logo.png" width="40" alt="logo" style="vertical-align: middle;">
-  Manga2Animate: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning
+  Manga2Animate: Reading Manga Before Animating It
 </h1>
 
 <p align="center">
@@ -297,7 +297,7 @@ models, and uses manga from [Manga109](http://www.manga109.org/).
 
 ```bibtex
 @misc{manga2animate2026,
-  title={{Manga2Animate}: An Agentic Framework for Faithful Manga Animation with Script and Storyboard Planning},
+  title={{Manga2Animate}: Reading Manga Before Animating It},
   author={Sheng-Wei Zhang and Hsi-An Chen and Yan-Ting Liou and Chih-Hsuan Chen and Shih-Chen Tseng and Yu-Lun Liu},
   year={2026},
   eprint={2610.26851},
